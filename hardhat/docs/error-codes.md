@@ -1,0 +1,41 @@
+### DataMarket Error Codes
+
+- **E01**	onlyValidator
+- **E02**	notActive
+- **E03**	onlyOwner
+- **E04**	onlySequencer
+- **E05**	onlyEpochManager
+- **E06**	onlyOwnerOrValidator
+- **E07**	onlyOwnerOrSequencer
+- **E08**	onlyOwnerOrAdmin
+- **E09**	AlreadyInitialized
+- **E10**	Epoch size must be 1 if USE_BLOCK_NUMBER_AS_EPOCH_ID is true
+- **E11**	Project type already in the same state
+- **E12**	Invalid signature
+- **E13**	Signature Expired!
+- **E14**	slotId does not match Signature slotId
+- **E15**	epochId does not match Signature epochId
+- **E16**	snapshotCid does not match Signature snapshotCid
+- **E17**	projectId does not match Signature projectId
+- **E18**	Invalid role
+- **E19**	Input lengths do not match
+- **E20**	Epoch end must be equal or greater than begin!
+- **E21**	Epoch size is not correct!
+- **E22**	Epoch is not continuous!
+- **E23**	projectIds and snapshotCids length mismatch!
+- **E24**	projectIds and snapshotCids length cannot be zero!
+- **E25**	Snapshot for this project and epoch already exists!
+- **E26**	batch ID does not belong to epoch ID
+- **E27**	Submission data already present for this slotId
+- **E28**	Can't verify signature
+- **E29**	Snapshotter does not exist!
+- **E30**	Epoch does not exist!
+- **E31**	Snapshotter has already sent snapshot for this epoch!
+- **E32**	Project does not exist!
+- **E33**   Only full node can submit snapshot
+- **E34**   Epoch end not >= begin!
+- **E35**   Epoch size not correct!
+- **E36**   Epoch not continuous!
+- **E37**   DataMarket fallback not enabled
+- **E38**   Cannot update rewards for past or future days
+- **E39**   Batch submissions completed for this epoch
