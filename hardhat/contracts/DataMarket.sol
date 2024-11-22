@@ -1053,8 +1053,6 @@ contract PowerloomDataMarket is Ownable {
             slotId
         );
 
-        require(slotSubmissionCount[slotId][day] == 0, "E27");
-
         slotSubmissionCount[slotId][day] = submissions;
         if (submissions >= dailySnapshotQuota) {
             if (eligibleNodesForDay[day] != 0){
