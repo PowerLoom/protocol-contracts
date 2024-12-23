@@ -128,6 +128,9 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
     event allSnapshottersUpdated(address snapshotterAddress, bool allowed);
     event AdminsUpdated(address adminAddress, bool allowed);
 
+    // receive ETH
+    receive() external payable {}
+
     /**
      * @dev Modifier to restrict access to owner or admins
      */
