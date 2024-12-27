@@ -223,7 +223,7 @@ describe("PowerloomNodes", function () {
         const nodeInfo = await powerloomNodes.nodeInfo(mintAmount);
 
         // Check node info
-        expect(nodeInfo.snapshotterAddress).to.equal(user1.address);
+        expect(nodeInfo.snapshotterAddress).to.equal('0x0000000000000000000000000000000000000000');
         expect(nodeInfo.nodePrice).to.equal(NODE_PRICE);
         expect(nodeInfo.amountSentOnL1).to.equal(0);
         expect(nodeInfo.mintedOn).to.be.equal(blockTimestamp);
@@ -707,7 +707,7 @@ describe("PowerloomNodes", function () {
 
             // Check node info for the first minted node
             const nodeInfo = await powerloomNodes.nodeInfo(1);
-            expect(nodeInfo.snapshotterAddress).to.equal(user1.address);
+            expect(nodeInfo.snapshotterAddress).to.equal('0x0000000000000000000000000000000000000000');
             expect(nodeInfo.nodePrice).to.equal(nodeValue);
             expect(nodeInfo.amountSentOnL1).to.equal(sentOnL1);
             expect(nodeInfo.isLegacy).to.be.true;

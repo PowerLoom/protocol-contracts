@@ -149,7 +149,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param _address The new address of the snapshotter state contract
      */
     function updateSnapshotterState(address _address) external onlyOwner {
-        snapshotterState = PowerloomNodes(_address);
+        snapshotterState = PowerloomNodes(payable(_address));
     }
 
     /**

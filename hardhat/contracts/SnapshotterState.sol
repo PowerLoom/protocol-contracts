@@ -395,10 +395,10 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
             userTokenIds[_to].add(nodeCount);
             nodeIdToOwner[nodeCount] = _to;
             if (_isLegacy){
-                nodeInfo[nodeCount] = NodeInfo(_to, legacyNodeValue, legacyTokensSentOnL1, block.timestamp, 0, block.timestamp, true, false, false, _isKyced);
+                nodeInfo[nodeCount] = NodeInfo(address(0), legacyNodeValue, legacyTokensSentOnL1, block.timestamp, 0, block.timestamp, true, false, false, _isKyced);
             }
             else{
-                nodeInfo[nodeCount] = NodeInfo(_to, nodePrice, 0, block.timestamp, 0, block.timestamp, false, false, false, _isKyced);
+                nodeInfo[nodeCount] = NodeInfo(address(0), nodePrice, 0, block.timestamp, 0, block.timestamp, false, false, false, _isKyced);
             }
             emit NodeMinted(_to, nodeCount);
         }
