@@ -214,54 +214,42 @@ PowerloomNodes is a Soul Bound Token (SBT) contract that manages Powerloom Snaps
 ### Node Management Events
 1. `NodeMinted(address indexed to, uint256 nodeId)`
    - Triggered when: New node is minted (both regular and legacy)
-   - Use case: Track node creation and ownership assignment
 
 2. `NodeBurned(address indexed from, uint256 nodeId)`
    - Triggered when: Node is burned by its owner
-   - Use case: Track node retirement and start of claim eligibility period
 
 ### Token Claim Events
 1. `LegacyNodeTokensClaimed(address indexed claimer, uint256 nodeId, uint256 amount)`
    - Triggered when: Legacy node tokens are claimed (both KYCed and non-KYCed)
-   - Use case: Track token claims for legacy nodes
 
 2. `SnapshotterTokensClaimed(address indexed claimer, uint256 nodeId, uint256 amount)`
    - Triggered when: Regular node tokens are claimed
-   - Use case: Track token claims for regular nodes
 
 ### Configuration and State Events
 1. `ConfigurationUpdated(string paramName, uint256 newValue)`
    - Triggered when: Contract configuration parameters are updated
-   - Use case: Audit trail of parameter changes (e.g., node price, cooldown periods)
 
 2. `URIUpdated(string newUri)`
    - Triggered when: Token metadata URI is updated
-   - Use case: Track changes to token metadata location
 
 3. `NameUpdated(string newName)`
    - Triggered when: Contract name is updated
-   - Use case: Track contract name changes
 
 4. `SnapshotterStateUpdated(address indexed newSnapshotterState)`
    - Triggered when: Snapshotter state changes
-   - Use case: Monitor snapshotter state modifications
 
 5. `allSnapshottersUpdated(address snapshotterAddress, bool allowed)`
    - Triggered when: Snapshotter permissions are modified
-   - Use case: Track changes in snapshotter access rights
 
 ### Administrative Events
 1. `AdminsUpdated(address adminAddress, bool allowed)`
    - Triggered when: Admin role permissions are modified
-   - Use case: Track changes in administrative access
 
 2. `EmergencyWithdraw(address indexed owner, uint256 amount)`
    - Triggered when: Emergency withdrawal is executed by owner
-   - Use case: Monitor emergency fund withdrawals
 
 3. `Deposit(address indexed from, uint256 amount)`
    - Triggered when: ETH is deposited into the contract
-   - Use case: Track incoming funds
 
 ## Value Flow and Economics
 
