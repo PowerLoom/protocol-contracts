@@ -6,7 +6,7 @@
 
 2. `npm install`
 
-3. Copy `.env.example.json` to `.env.json` and fill the required fields:
+3. Copy `.env.example` to `.env` and fill the required fields (default values will work for tests):
     - PRIVATE_KEY: Private key for the owner account to be used
     - RPC_URL_CONDUIT: RPC URL for the target deployment chain
 
