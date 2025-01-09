@@ -376,6 +376,16 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
     }
 
     /**
+     * @dev Completes the KYC process for a node
+     * @param _nodeId ID of the node
+     */
+    function completeKyc(uint256 _nodeId) public onlyOwner {
+        require(nodeInfo[_nodeId].isLegacy, "Node is not legacy");
+        require(nodeInfo[_nodeId].isKyced == false, "Node is already KYCed");
+        nodeInfo[_nodeId].isKyced = true;
+    }
+
+    /**
      * @dev Internal function to mint a node
      * @param amount Number of nodes to mint
      * @param _to Address to mint the nodes to
