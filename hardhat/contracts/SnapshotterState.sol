@@ -570,7 +570,9 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
     function burnNode(uint256 _nodeId) public nonReentrant whenNotPaused {
         require(_nodeId > 0 && _nodeId <= nodeCount, "Node ID is out of bounds");
         require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can burn their own node");
-
+        if (nodeInfo[_nodeId].isLegacy && !nodeInfo[_nodeId].isKyced){
+            require(block.timestamp >= legacyNodeVestingStart + legacyNodeNonKycedCooldown, "Non KYCed legacy nodes cannot be burned before lockup period");
+        }
         _burn(msg.sender, _nodeId, 1);
         userTokenIds[msg.sender].remove(_nodeId);
         isNodeBurned[_nodeId] = true;
@@ -714,7 +716,6 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
             }
             else{
                 require(node.burnedOn > 0, "Need to Burn the Node First");
-                require(block.timestamp >= node.burnedOn + legacyNodeNonKycedCooldown, "Legacy node non-kyced cooldown not yet met");
                 require(node.claimedTokens == false, "Tokens already claimed");
                 require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
 
