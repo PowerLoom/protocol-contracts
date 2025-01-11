@@ -94,6 +94,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
     uint256 public mintStartTime;
     uint256 public snapshotterAddressChangeCooldown;
     uint256 public snapshotterTokenClaimCooldown;
+    uint256 public MAX_SUPPLY = 10000;
 
 
     mapping(address => EnumerableSet.UintSet) private userTokenIds;
@@ -162,6 +163,15 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
      */
     function getAdmins() public view returns(address[] memory) {
         return adminSet.values();
+    }
+
+    /**
+     * @dev Function to update the maximum supply of nodes
+     * @param _maxSupply The new maximum supply
+     */
+    function updateMaxSupply(uint256 _maxSupply) public onlyOwner {
+        MAX_SUPPLY = _maxSupply;
+        emit ConfigurationUpdated("MaxSupply", _maxSupply);
     }
 
     /**
@@ -424,6 +434,8 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         require(mintStartTime > 0, "Mint start time is not set");
         uint256 cost = amount * nodePrice;
         require(msg.value >= cost, "Not enough Power!");
+        require (totalSupply()+amount <= MAX_SUPPLY, "Max supply reached");
+
         
         uint256 excessETH = msg.value - cost;
         if (excessETH > 0) {
