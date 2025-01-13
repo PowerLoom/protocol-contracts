@@ -91,6 +91,10 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
         __UUPSUpgradeable_init();
     }
 
+    // receive ETH
+    receive() external payable {}
+
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor(){
         _disableInitializers();
