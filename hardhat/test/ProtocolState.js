@@ -423,6 +423,9 @@ describe("PowerloomProtocolState", function () {
         });
 
         it("Should store rewards successfully", async function () {
+            await expect(proxyContract.updateRewardPoolSize(dataMarket1.target, 100)).not.to.be.reverted;
+            expect(await proxyContract.rewardPoolSize(dataMarket1.target)).to.be.equal(100);
+
             // set otherAccount1 as a sequencer
             const role = 1
             await proxyContract.updateAddresses(
@@ -433,19 +436,25 @@ describe("PowerloomProtocolState", function () {
             );
 
             await dataMarket1.connect(otherAccount1).updateEligibleNodesForDay(1, 1);
-            await dataMarket1.updateRewardPoolSize(ethers.parseEther("100"));
+
+            const rewardPoolSize = await dataMarket1.rewardPoolSize();
+            const eligibleNodesForDay = await dataMarket1.eligibleNodesForDay(1);
+            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDay;
+
+            const dailySnapshotQuota = await proxyContract.dailySnapshotQuota(dataMarket1.target);
 
             const blockTimestamp = await time.latest();
             await expect(proxyContract.connect(otherAccount1).updateRewards(
                 dataMarket1.target, 
                 [1], 
-                [100], 
+                [dailySnapshotQuota], 
                 1,
                 1
-            )).to.emit(proxyContract, "DailyTaskCompletedEvent")
-              .withArgs(dataMarket1.target, otherAccount1.address, 1, 1, blockTimestamp + 1);
+            )).to.emit(proxyContract, "RewardsDistributedEvent")
+              .withArgs(dataMarket1.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp + 1);
 
-            expect(await proxyContract.slotSubmissionCount(dataMarket1.target, 1, 1)).to.equal(100);
+            expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(expectedRewardPoints);
+            expect(await proxyContract.slotSubmissionCount(dataMarket1.target, 1, 1)).to.equal(dailySnapshotQuota);
         });
 
         it("Should finalize batch on enough batch attestations", async function () {
@@ -1766,6 +1775,42 @@ describe("PowerloomProtocolState", function () {
             )).to.emit(proxyContract, "DailyTaskCompletedEvent")
               .withArgs(dataMarket1.target, otherAccount1.address, slotId, currentDay + 1n, blockTimestamp + 3);
             expect(await proxyContract.checkSlotTaskStatusForDay(dataMarket1.target, slotId, currentDay + 1n)).to.be.equal(true);
+
+        });
+
+        it("Should successfully get and update reward data", async function () {
+            await expect(proxyContract.updateRewardPoolSize(dataMarket1.target, 100)).not.to.be.reverted;
+            expect(await proxyContract.rewardPoolSize(dataMarket1.target)).to.be.equal(100);
+
+            // set otherAccount1 as a sequencer
+            const role = 1
+            await proxyContract.updateAddresses(
+                dataMarket1.target,
+                role,
+                [otherAccount1.address], 
+                [true],
+            );
+
+            await dataMarket1.connect(otherAccount1).updateEligibleNodesForDay(1, 1);
+
+            const rewardPoolSize = await dataMarket1.rewardPoolSize();
+            const eligibleNodesForDay = await dataMarket1.eligibleNodesForDay(1);
+            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDay;
+
+            const dailySnapshotQuota = await proxyContract.dailySnapshotQuota(dataMarket1.target);
+
+            const blockTimestamp = await time.latest();
+            await expect(proxyContract.connect(otherAccount1).updateRewards(
+                dataMarket1.target, 
+                [1], 
+                [dailySnapshotQuota], 
+                1,
+                1
+            )).to.emit(proxyContract, "RewardsDistributedEvent")
+              .withArgs(dataMarket1.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp + 1);
+
+            expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(expectedRewardPoints);
+            expect(await proxyContract.slotSubmissionCount(dataMarket1.target, 1, 1)).to.equal(dailySnapshotQuota);
 
         });
     });
