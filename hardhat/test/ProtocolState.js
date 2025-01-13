@@ -1054,6 +1054,40 @@ describe("PowerloomProtocolState", function () {
 
         });
 
+        it("Should store the correct batchCid after sequencer submission", async function () {
+            await expect(proxyContract.updateBatchSubmissionWindow(dataMarket1.target, 20)).not.to.be.reverted;
+            await expect(proxyContract.updateAttestationSubmissionWindow(dataMarket1.target, 100)).not.to.be.reverted;
+
+            const batchCid = "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnX";
+            const epochId = currentEpoch.epochId;
+            const projectIds = ["test-project-1", "test-project-2"];
+            const snapshotCids = ["QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR", "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnS"];
+            const finalizedRootHash = ethers.encodeBytes32String("test-hash");
+
+            // set sequencer1 as a sequencer
+            const role = 1
+            await proxyContract.updateAddresses(
+                dataMarket1.target,
+                role,
+                [sequencer1.address], 
+                [true],
+            );
+
+            const blockTimestamp = await time.latest();
+            await expect(proxyContract.connect(sequencer1).submitSubmissionBatch(
+                dataMarket1.target, 
+                batchCid,
+                epochId, 
+                projectIds, 
+                snapshotCids, 
+                finalizedRootHash
+            )).to.emit(proxyContract, "SnapshotBatchSubmitted")
+              .withArgs(dataMarket1.target, batchCid, epochId, blockTimestamp + 1);
+
+            const batchCidSequencerAttestation = await proxyContract.batchCidSequencerAttestation(dataMarket1.target, batchCid);
+            expect(batchCidSequencerAttestation).to.equal(finalizedRootHash);
+        });
+
         it("Should end batch submissions", async function () {
 
             // set sequencer1 as a sequencer
@@ -1408,6 +1442,15 @@ describe("PowerloomProtocolState", function () {
                 [true],
             );
             expect((await dataMarket1.getAdmins()).length).to.be.equal(1);
+
+            // set otherAccount1 as a non-valid role - will revert silently due to solidity enum checking
+            const role3 = 3
+            await expect(proxyContract.updateAddresses(
+                dataMarket1.target,
+                role3,
+                [otherAccount1.address], 
+                [true],
+            )).to.be.reverted;
         });
 
         it("Should update day size", async function () {
@@ -1756,7 +1799,6 @@ describe("PowerloomProtocolState", function () {
 
             await expect(proxyContract.connect(otherAccount1).emergencyWithdraw(
             )).to.be.revertedWithCustomError(proxyContract, "OwnableUnauthorizedAccount");
-
         });
     });
 });
