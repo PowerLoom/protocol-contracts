@@ -1239,6 +1239,122 @@ describe("PowerloomProtocolState", function () {
             expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(expectedRewardPoints);
             expect(await proxyContract.slotSubmissionCount(dataMarket1.target, 1, 1)).to.equal(dailySnapshotQuota);
         });
+
+        it("Should successfully claim rewards", async function () {
+            // set otherAccount1 as a sequencer
+            const role = 1
+            await proxyContract.updateAddresses(
+                dataMarket1.target,
+                role,
+                [otherAccount1.address], 
+                [true],
+            );
+
+            const rewardPoolSize = ethers.parseEther("100");
+            await expect(dataMarket1.connect(owner).updateRewardPoolSize(rewardPoolSize)).to.not.be.reverted;
+
+            // send rewards for distribution
+            await owner.sendTransaction({
+                to: proxyContract.target,
+                value: ethers.parseEther("100")
+            });
+
+            const eligibleNodesForDay = 2;
+            const expectedRewardPoints = BigInt(rewardPoolSize) / BigInt(eligibleNodesForDay);
+
+            const dailySnapshotQuota = await proxyContract.dailySnapshotQuota(dataMarket1.target);
+            const blockTimestamp = await time.latest();
+            await expect(proxyContract.connect(otherAccount1).updateRewards(
+                dataMarket1.target, 
+                [1, 2], 
+                [dailySnapshotQuota, dailySnapshotQuota], 
+                1,
+                eligibleNodesForDay
+            )).to.emit(proxyContract, "RewardsDistributedEvent")
+            .withArgs(dataMarket1.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp + 1)
+            .withArgs(dataMarket1.target, otherAccount2.address, 2, 1, expectedRewardPoints, blockTimestamp + 1);
+
+            expect(await dataMarket1.eligibleNodesForDay(1)).to.equal(2);
+            expect(await dataMarket1.rewardPoolSize()).to.equal(rewardPoolSize);
+
+            const totalNodesHeld = await snapshotterState.getUserOwnedNodeIds(snapshotter1.address);
+            const totalRewards = BigInt(totalNodesHeld.length) * BigInt(expectedRewardPoints);
+
+            const contractBalanceBefore = await ethers.provider.getBalance(proxyContract.target);
+            // claim rewards to node holder of slot 1
+            await expect(proxyContract.connect(snapshotter1).claimRewards(snapshotter1.address))
+                .to.emit(proxyContract, "RewardsClaimed")
+                .withArgs(snapshotter1.address, totalRewards, blockTimestamp + 2);
+
+            const contractBalanceAfter = await ethers.provider.getBalance(proxyContract.target);
+            expect(contractBalanceAfter).to.be.equal(contractBalanceBefore - totalRewards);
+        });
+
+        it("Should successfully claim rewards from multiple data markets", async function () {
+            const rewardPoolSize = ethers.parseEther("100");
+            await expect(dataMarket1.connect(owner).updateRewardPoolSize(rewardPoolSize)).to.not.be.reverted;
+            await expect(dataMarket2.connect(owner).updateRewardPoolSize(rewardPoolSize)).to.not.be.reverted;
+
+            await proxyContract.updateAddresses(
+                dataMarket1.target,
+                1,
+                [otherAccount1.address], 
+                [true],
+            );
+
+            await proxyContract.updateAddresses(
+                dataMarket2.target,
+                1,
+                [otherAccount1.address], 
+                [true],
+            );
+
+            // send rewards for distribution
+            await owner.sendTransaction({
+                to: proxyContract.target,
+                value: rewardPoolSize * 2n
+            });
+
+            const eligibleNodesForDay = 2;
+            const expectedRewardPoints = BigInt(rewardPoolSize) / BigInt(eligibleNodesForDay);
+
+            const dailySnapshotQuota1 = await proxyContract.dailySnapshotQuota(dataMarket1.target);
+            const dailySnapshotQuota2 = await proxyContract.dailySnapshotQuota(dataMarket2.target);
+            const blockTimestamp = await time.latest();
+            await expect(proxyContract.connect(otherAccount1).updateRewards(
+                dataMarket1.target, 
+                [1, 2], 
+                [dailySnapshotQuota1, dailySnapshotQuota1], 
+                1,
+                eligibleNodesForDay
+            )).to.emit(proxyContract, "RewardsDistributedEvent")
+            .withArgs(dataMarket1.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp + 1)
+            .withArgs(dataMarket1.target, otherAccount2.address, 2, 1, expectedRewardPoints, blockTimestamp + 1);
+
+            await expect(proxyContract.connect(otherAccount1).updateRewards(
+                dataMarket2.target, 
+                [1, 2], 
+                [dailySnapshotQuota2, dailySnapshotQuota2], 
+                1,
+                eligibleNodesForDay
+            )).to.emit(proxyContract, "RewardsDistributedEvent")
+            .withArgs(dataMarket2.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp + 2)
+            .withArgs(dataMarket2.target, otherAccount2.address, 2, 1, expectedRewardPoints, blockTimestamp + 2);
+
+            const totalNodesHeld = await snapshotterState.getUserOwnedNodeIds(snapshotter1.address);
+            const totalRewards = BigInt(totalNodesHeld.length) * BigInt(expectedRewardPoints);
+            const totalRewardsForBothMarkets = totalRewards * 2n;
+
+            const contractBalanceBefore = await ethers.provider.getBalance(proxyContract.target);
+            // claim rewards to node holder of slot 1
+            await expect(proxyContract.connect(snapshotter1).claimRewards(snapshotter1.address))
+                .to.emit(proxyContract, "RewardsClaimed")
+                .withArgs(snapshotter1.address, totalRewardsForBothMarkets, blockTimestamp + 3);
+
+            const contractBalanceAfter = await ethers.provider.getBalance(proxyContract.target);
+            expect(contractBalanceAfter).to.be.equal(contractBalanceBefore - totalRewardsForBothMarkets);
+
+        });
     });
 
     describe("Protocol State Getters/Setters", function () {
