@@ -91,7 +91,7 @@ describe("PowerloomProtocolState", function () {
         dataMarketCount = await proxyContract.dataMarketCount();
         dataMarketIds[dataMarketCount] = dataMarket1Address;
 
-        const dataMarket2Tx = await proxyContract.createDataMarket(owner.address, 1, 137, 20000, true);
+        const dataMarket2Tx = await proxyContract.createDataMarket(owner.address, 1, 137, 20000, false);
         const receiptDM2 = await dataMarket2Tx.wait();
         expect(receiptDM2.status).to.equal(1);
         
@@ -332,6 +332,40 @@ describe("PowerloomProtocolState", function () {
             expect(await proxyContract.maxSnapshotsCid(dataMarket1.target, projectId, currentEpoch.epochId)).to.equal("");
         });
 
+        it("Should set the project first epoch id on batch submission", async function () {
+            const batchCid = "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnX";
+            const batchId = 1;
+            const projectIds = ["first-epoch-test-project"];
+            const snapshotCids = ["QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR"];
+            const finalizedRootHash = ethers.encodeBytes32String("test-hash");
+            const epochId = currentEpoch.epochId;
+
+            // set otherAccount1 as a sequencer
+            const role = 1
+            await proxyContract.updateAddresses(
+                dataMarket1.target,
+                role,
+                [otherAccount1.address], 
+                [true],
+            );
+
+            await expect(proxyContract.updateBatchSubmissionWindow(dataMarket1.target, 10)).to.not.be.reverted;
+
+            const blockTimestamp = await time.latest();
+            await expect(proxyContract.connect(otherAccount1).submitSubmissionBatch(
+                dataMarket1.target, 
+                batchCid,
+                epochId, 
+                projectIds, 
+                snapshotCids, 
+                finalizedRootHash
+            )).to.emit(proxyContract, "SnapshotBatchSubmitted")
+              .withArgs(dataMarket1.target, batchCid, epochId, blockTimestamp + 1);
+
+            expect(await proxyContract.projectFirstEpochId(dataMarket1.target, projectIds[0])).to.equal(epochId);
+            expect(await proxyContract.lastSequencerFinalizedSnapshot(dataMarket1.target, projectIds[0])).to.equal(epochId);
+        });
+
         it("Attestation submission should fail if submitted again", async function () {
             const batchCid = "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnX";
             const batchId = 1;
@@ -488,6 +522,7 @@ describe("PowerloomProtocolState", function () {
 
             expect(await proxyContract.lastFinalizedSnapshot(dataMarket1.target, projectIds[0])).to.equal(epochId);
             expect(await proxyContract.maxSnapshotsCid(dataMarket1.target, projectIds[1], epochId)).to.equal(snapshotCids[1]);
+            expect(await proxyContract.batchCidAttestationStatus(dataMarket1.target, batchCid)).to.equal(true);
         });
 
         it("Should correctly handle consensus for attestations", async function () {
@@ -765,6 +800,9 @@ describe("PowerloomProtocolState", function () {
             const blockBefore = await ethers.provider.getBlock(blockNumBefore);
             const timestampBefore = blockBefore.timestamp + 1;
 
+            expect(await proxyContract.batchCidDivergentValidators(dataMarket1.target, batchCid, 0)).to.equal(otherAccount1.address);
+            expect(await dataMarket1.batchCidDivergentValidatorsLen(batchCid)).to.equal(1);
+
             // need 3rd attestation to finalize
             await expect(proxyContract.connect(otherAccount3).submitBatchAttestation(dataMarket1.target, batchCid, epochId, finalizedRootHash))
                 .to.emit(proxyContract, "SnapshotBatchAttestationSubmitted")
@@ -773,6 +811,92 @@ describe("PowerloomProtocolState", function () {
                 .withArgs(epochId, batchCid, blockTimestamp + 3)
                 .to.emit(dataMarket1, "ValidatorAttestationsInvalidated")
                 .withArgs(epochId, batchCid, otherAccount1.address, timestampBefore);
+        });
+
+        it("Should correctly force complete consensus attestation with divergent validators", async function () {
+            await expect(proxyContract.updateBatchSubmissionWindow(dataMarket1.target, 20)).not.to.be.reverted;
+            await expect(proxyContract.updateAttestationSubmissionWindow(dataMarket1.target, 100)).not.to.be.reverted;
+
+            const batchCid = "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnX";
+            const epochId = currentEpoch.epochId;
+            console.log("epochId", epochId);
+            const projectIds = ["test-project-1", "test-project-2"];
+            const snapshotCids = ["QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR", "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnS"];
+            const finalizedRootHash = ethers.encodeBytes32String("test-hash");
+
+            // set sequencer1 as a sequencer
+            const role = 1
+            await proxyContract.updateAddresses(
+                dataMarket1.target,
+                role,
+                [sequencer1.address], 
+                [true],
+            );
+
+            let blockTimestamp = await time.latest();
+            await expect(proxyContract.connect(sequencer1).submitSubmissionBatch(
+                dataMarket1.target, 
+                batchCid,
+                epochId, 
+                projectIds, 
+                snapshotCids, 
+                finalizedRootHash
+            )).to.emit(proxyContract, "SnapshotBatchSubmitted")
+              .withArgs(dataMarket1.target, batchCid, epochId, blockTimestamp + 1);
+
+            // set 3 accounts as validators
+            const role2 = 0
+            await proxyContract.updateAddresses(
+                dataMarket1.target,
+                role2,
+                [otherAccount1.address, otherAccount2.address, otherAccount3.address], 
+                [true, true, true],
+            );
+
+            await expect(proxyContract.updateMinAttestationsForConsensus(dataMarket1.target, 2)).not.to.be.reverted;
+
+            const divergentRootHash = ethers.encodeBytes32String("divergent-hash");
+            blockTimestamp = await time.latest();
+            await expect(proxyContract.connect(otherAccount1).submitBatchAttestation(dataMarket1.target, batchCid, epochId, divergentRootHash))
+                .to.emit(proxyContract, "SnapshotBatchAttestationSubmitted")
+                .withArgs(dataMarket1.target, batchCid, epochId, blockTimestamp + 1, otherAccount1.address);
+            
+            expect(await proxyContract.batchCidDivergentValidators(dataMarket1.target, batchCid, 0)).to.equal(otherAccount1.address);
+
+            await expect(proxyContract.connect(otherAccount2).submitBatchAttestation(dataMarket1.target, batchCid, epochId, finalizedRootHash))
+                .to.emit(proxyContract, "SnapshotBatchAttestationSubmitted")
+                .withArgs(dataMarket1.target, batchCid, epochId, blockTimestamp + 2, otherAccount2.address);
+
+            let blockNumBefore = await ethers.provider.getBlockNumber();
+            let blockBefore = await ethers.provider.getBlock(blockNumBefore);
+            let timestampBefore = blockBefore.timestamp + 1;
+
+            expect(await proxyContract.batchCidDivergentValidators(dataMarket1.target, batchCid, 0)).to.equal(otherAccount1.address);
+            expect(await dataMarket1.batchCidDivergentValidatorsLen(batchCid)).to.equal(1);
+
+            const batchCidToProjectIds = await proxyContract.batchCidToProjects(dataMarket1.target, batchCid);
+            expect(batchCidToProjectIds[0]).to.equal(projectIds[0]);
+            expect(batchCidToProjectIds[1]).to.equal(projectIds[1]);
+            expect(await dataMarket1.batchCidToProjectsLen(batchCid)).to.equal(2);
+
+            const snapshotStatus = await proxyContract.snapshotStatus(dataMarket1.target, projectIds[0], epochId);
+            expect(snapshotStatus.status).to.equal(0);
+            expect(snapshotStatus.snapshotCid).to.equal(snapshotCids[0]);
+
+            const epochInfo = await dataMarket1.epochInfo(epochId);
+            const epochEnd = epochInfo.epochEnd;
+
+            blockNumBefore = await ethers.provider.getBlockNumber();
+            blockBefore = await ethers.provider.getBlock(blockNumBefore);
+            timestampBefore = blockBefore.timestamp + 1;
+
+            await expect(proxyContract.forceCompleteConsensusAttestations(dataMarket1.target, batchCid, epochId))
+                .to.emit(proxyContract, "SnapshotFinalized")
+                .withArgs(dataMarket1.target, epochId, epochEnd, projectIds[0], snapshotCids[0], blockTimestamp + 3)
+                .to.emit(proxyContract, "SnapshotFinalized")
+                .withArgs(dataMarket1.target, epochId, epochEnd, projectIds[1], snapshotCids[1], blockTimestamp + 3)
+                .to.emit(proxyContract, "ValidatorAttestationsInvalidated")
+                .withArgs(dataMarket1.target, epochId, batchCid, otherAccount1.address, timestampBefore);
         });
 
         it("Should trigger resubmission if validators are divergent", async function () {
@@ -1482,7 +1606,7 @@ describe("PowerloomProtocolState", function () {
             expect(dataMarketInfo.epochSize).to.equal(1);
             expect(dataMarketInfo.sourceChainId).to.equal(137);
             expect(dataMarketInfo.sourceChainBlockTime).to.equal(20000);
-            expect(dataMarketInfo.useBlockNumberAsEpochId).to.be.true;
+            expect(dataMarketInfo.useBlockNumberAsEpochId).to.be.false;
             expect(dataMarketInfo.enabled).to.be.true;
             expect(dataMarketInfo.dataMarketAddress).to.equal(dataMarket2.target);
             expect(dataMarketInfo.createdAt).to.be.greaterThan(0);
@@ -1738,7 +1862,7 @@ describe("PowerloomProtocolState", function () {
             expect(await proxyContract.SOURCE_CHAIN_ID(dataMarket2.target)).to.be.equal(137);
             const sourceChainBlockTime = await proxyContract.SOURCE_CHAIN_BLOCK_TIME(dataMarket2.target);
             expect(sourceChainBlockTime).to.be.equal(20000);
-            expect(await proxyContract.USE_BLOCK_NUMBER_AS_EPOCH_ID(dataMarket2.target)).to.be.true;
+            expect(await proxyContract.USE_BLOCK_NUMBER_AS_EPOCH_ID(dataMarket2.target)).to.be.false;
 
             const currentEpoch = await proxyContract.currentEpoch(dataMarket2.target);
             expect(currentEpoch.epochId).to.be.equal(1);
