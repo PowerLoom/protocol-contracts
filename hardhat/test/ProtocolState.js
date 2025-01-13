@@ -1978,4 +1978,24 @@ describe("PowerloomProtocolState", function () {
             )).to.be.revertedWithCustomError(proxyContract, "OwnableUnauthorizedAccount");
         });
     });
+
+    describe("Emergency Withdraw", function () {
+        it("Should successfully emergency withdraw rewards", async function () {
+
+            // send rewards for distribution
+            await owner.sendTransaction({
+                to: proxyContract.target,
+                value: ethers.parseEther("100")
+            });
+
+            const contractBalanceBefore = await ethers.provider.getBalance(proxyContract.target);
+            const ownerBalanceBefore = await ethers.provider.getBalance(owner.address);
+            await expect(proxyContract.connect(owner).emergencyWithdraw()).to.not.be.reverted;
+            const contractBalanceAfter = await ethers.provider.getBalance(proxyContract.target);
+            const ownerBalanceAfter = await ethers.provider.getBalance(owner.address);
+            expect(contractBalanceAfter).to.be.equal(contractBalanceBefore - ethers.parseEther("100"));
+            expect(ownerBalanceAfter).to.be.greaterThan(ownerBalanceBefore);
+
+        });
+    });
 });
