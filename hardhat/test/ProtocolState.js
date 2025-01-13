@@ -1726,4 +1726,37 @@ describe("PowerloomProtocolState", function () {
 
         });
     });
+
+    describe("Access Control", function () {
+        it("Should successfully limit access to onlyOwner modified functions", async function () {
+            await expect(proxyContract.connect(otherAccount1).createDataMarket(
+                otherAccount1.address,
+                10,
+                1,
+                120000,
+                false
+            )).to.be.revertedWithCustomError(proxyContract, "OwnableUnauthorizedAccount");
+
+            await expect(proxyContract.connect(otherAccount1).updateDataMarketFactory(
+                otherAccount2.address
+            )).to.be.revertedWithCustomError(proxyContract, "OwnableUnauthorizedAccount");
+
+            await expect(proxyContract.connect(otherAccount1).updateSnapshotterState(
+                otherAccount2.address
+            )).to.be.revertedWithCustomError(proxyContract, "OwnableUnauthorizedAccount");
+
+            await expect(proxyContract.connect(otherAccount1).toggleDataMarket(
+                dataMarket1.target,
+                false
+            )).to.be.revertedWithCustomError(proxyContract, "OwnableUnauthorizedAccount");
+
+            await expect(proxyContract.connect(otherAccount1).updateDataMarketFactory(
+                otherAccount2.address
+            )).to.be.revertedWithCustomError(proxyContract, "OwnableUnauthorizedAccount");
+
+            await expect(proxyContract.connect(otherAccount1).emergencyWithdraw(
+            )).to.be.revertedWithCustomError(proxyContract, "OwnableUnauthorizedAccount");
+
+        });
+    });
 });
