@@ -1236,14 +1236,29 @@ describe("PowerloomProtocolState", function () {
                 .withArgs(snapshotter1.address, 3)
                 .to.emit(snapshotterState, "NodeMinted")
                 .withArgs(snapshotter1.address, 4);
+
+            expect(await proxyContract.getTotalSnapshotterCount()).to.be.equal(0);
+
+            // check total node count after minting legacy nodes
+            expect(await proxyContract.getTotalNodeCount()).to.be.equal(4);
+
+            // check enabled node count before assigning snapshotters to nodes
+            expect(await proxyContract.enabledNodeCount()).to.be.equal(0);
+
+            // assign snapshotters to nodes
             await expect(snapshotterState.assignSnapshotterToNodeBulkAdmin(
-                [1, 2], 
-                [snapshotter1.address, snapshotter2.address]
+                [1, 2, 3, 4], 
+                [otherAccount1.address, otherAccount1.address, otherAccount2.address, otherAccount2.address]
             )).to.emit(snapshotterState, "allSnapshottersUpdated")
-              .withArgs(snapshotter1.address, true)
+              .withArgs(otherAccount1.address, true)
               .to.emit(snapshotterState, "allSnapshottersUpdated")
-              .withArgs(snapshotter2.address, true);
-            expect(await proxyContract.getTotalSnapshotterCount()).to.be.equal(2);
+              .withArgs(otherAccount2.address, true);
+
+            // check enabled node count after assigning snapshotters to nodes
+            expect(await proxyContract.enabledNodeCount()).to.be.equal(4);
+
+            // check total snapshotter count after assigning snapshotters to nodes
+            expect(await proxyContract.getTotalSnapshotterCount()).to.be.equal(4);
         });
 
         it("Should succesfully remove addresses", async function () {
