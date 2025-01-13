@@ -435,15 +435,31 @@ describe("PowerloomProtocolState", function () {
                 [true],
             );
 
+            const eligibleNodesForDayBefore = await dataMarket1.eligibleNodesForDay(1);
+            expect(eligibleNodesForDayBefore).to.equal(0);
+
+            const blockTimestamp1 = await time.latest();
+            const dailySnapshotQuota = await proxyContract.dailySnapshotQuota(dataMarket1.target);
+
+            // test sending 0 eligible nodes
+            await expect(proxyContract.connect(otherAccount1).updateRewards(
+                dataMarket1.target, 
+                [1], 
+                [dailySnapshotQuota], 
+                1,
+                0
+            )).to.not.be.reverted;
+
+            // test that rewards are not distributed
+            expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(0);
+
             await dataMarket1.connect(otherAccount1).updateEligibleNodesForDay(1, 1);
 
             const rewardPoolSize = await dataMarket1.rewardPoolSize();
-            const eligibleNodesForDay = await dataMarket1.eligibleNodesForDay(1);
-            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDay;
+            const eligibleNodesForDayAfter = await dataMarket1.eligibleNodesForDay(1);
+            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDayAfter;
 
-            const dailySnapshotQuota = await proxyContract.dailySnapshotQuota(dataMarket1.target);
-
-            const blockTimestamp = await time.latest();
+            const blockTimestamp2 = await time.latest();
             await expect(proxyContract.connect(otherAccount1).updateRewards(
                 dataMarket1.target, 
                 [1], 
@@ -451,7 +467,7 @@ describe("PowerloomProtocolState", function () {
                 1,
                 1
             )).to.emit(proxyContract, "RewardsDistributedEvent")
-              .withArgs(dataMarket1.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp + 1);
+              .withArgs(dataMarket1.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp2 + 1);
 
             expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(expectedRewardPoints);
             expect(await proxyContract.slotSubmissionCount(dataMarket1.target, 1, 1)).to.equal(dailySnapshotQuota);
