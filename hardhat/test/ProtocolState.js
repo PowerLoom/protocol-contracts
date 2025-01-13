@@ -422,57 +422,6 @@ describe("PowerloomProtocolState", function () {
             expect(project2Status.snapshotCid).to.equal(snapshotCids[1]);
         });
 
-        it("Should store rewards successfully", async function () {
-            await expect(proxyContract.updateRewardPoolSize(dataMarket1.target, 100)).not.to.be.reverted;
-            expect(await proxyContract.rewardPoolSize(dataMarket1.target)).to.be.equal(100);
-
-            // set otherAccount1 as a sequencer
-            const role = 1
-            await proxyContract.updateAddresses(
-                dataMarket1.target,
-                role,
-                [otherAccount1.address], 
-                [true],
-            );
-
-            const eligibleNodesForDayBefore = await dataMarket1.eligibleNodesForDay(1);
-            expect(eligibleNodesForDayBefore).to.equal(0);
-
-            const blockTimestamp1 = await time.latest();
-            const dailySnapshotQuota = await proxyContract.dailySnapshotQuota(dataMarket1.target);
-
-            // test sending 0 eligible nodes
-            await expect(proxyContract.connect(otherAccount1).updateRewards(
-                dataMarket1.target, 
-                [1], 
-                [dailySnapshotQuota], 
-                1,
-                0
-            )).to.not.be.reverted;
-
-            // test that rewards are not distributed
-            expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(0);
-
-            await dataMarket1.connect(otherAccount1).updateEligibleNodesForDay(1, 1);
-
-            const rewardPoolSize = await dataMarket1.rewardPoolSize();
-            const eligibleNodesForDayAfter = await dataMarket1.eligibleNodesForDay(1);
-            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDayAfter;
-
-            const blockTimestamp2 = await time.latest();
-            await expect(proxyContract.connect(otherAccount1).updateRewards(
-                dataMarket1.target, 
-                [1], 
-                [dailySnapshotQuota], 
-                1,
-                1
-            )).to.emit(proxyContract, "RewardsDistributedEvent")
-              .withArgs(dataMarket1.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp2 + 1);
-
-            expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(expectedRewardPoints);
-            expect(await proxyContract.slotSubmissionCount(dataMarket1.target, 1, 1)).to.equal(dailySnapshotQuota);
-        });
-
         it("Should finalize batch on enough batch attestations", async function () {
             await expect(proxyContract.updateBatchSubmissionWindow(dataMarket1.target, 20)).not.to.be.reverted;
             await expect(proxyContract.updateAttestationSubmissionWindow(dataMarket1.target, 100)).not.to.be.reverted;
@@ -1130,114 +1079,165 @@ describe("PowerloomProtocolState", function () {
                 .withArgs(dataMarket1.target, currentEpoch.epochId, blockTimestamp + 1);
         });
 
-        describe("Rewards", function () {
-            beforeEach(async function () {
-                // Assign snapshotters to slots in both data markets
-                const legacyConfig = {
-                    legacyNodeCount: 100,
-                    legacyNodeInitialClaimPercentage: 200000, // 20%
-                    legacyNodeCliff: 30,
-                    legacyNodeValue: ethers.parseEther("1000"),
-                    legacyNodeVestingDays: 365,
-                    legacyNodeVestingStart: (await time.latest()) + 86400, // 1 day from now
-                    legacyTokensSentOnL1: ethers.parseEther("100"),
-                    legacyNodeNonKycedCooldown: 7 * 86400 // 7 days
-                };
-                await expect(snapshotterState.configureLegacyNodes(
-                    legacyConfig.legacyNodeCount,
-                    legacyConfig.legacyNodeInitialClaimPercentage,
-                    legacyConfig.legacyNodeCliff,
-                    legacyConfig.legacyNodeValue,
-                    legacyConfig.legacyNodeVestingDays,
-                    legacyConfig.legacyNodeVestingStart,
-                    legacyConfig.legacyTokensSentOnL1,
-                    legacyConfig.legacyNodeNonKycedCooldown
-                )).to.emit(snapshotterState, "ConfigurationUpdated")
-                  .withArgs("LegacyNodesConfig", legacyConfig.legacyNodeCount);
-                await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 2, true))
-                    .to.emit(snapshotterState, "NodeMinted")
-                    .withArgs(snapshotter1.address, 2)
-                await expect(snapshotterState.assignSnapshotterToNodeBulkAdmin(
-                    [1, 2], 
-                    [otherAccount1.address, otherAccount2.address]
-                )).to.emit(snapshotterState, "allSnapshottersUpdated")
-                  .withArgs(otherAccount1.address, true)
-                  .to.emit(snapshotterState, "allSnapshottersUpdated")
-                  .withArgs(otherAccount2.address, true);
-        
-                await proxyContract.updateAddresses(dataMarket1.target, 1, [sequencer1.address], [true]); // set sequencer1 as a sequencer
-                await proxyContract.updateAddresses(dataMarket2.target, 1, [sequencer2.address], [true]); // set sequencer2 as a sequencer
-        
-                // Set some reward points and snapshot counts for dataMarket1
+    });
 
-                let eligibleNodes = 2;
-                const rewardBasePoints = 100;
-                const snapshotQuota = 5;
-                
-                await proxyContract.updateRewardPoolSize(dataMarket1.target, rewardBasePoints);
-                await proxyContract.updateDailySnapshotQuota(dataMarket1.target, snapshotQuota);
-                await dataMarket1.connect(sequencer1).updateEligibleNodesForDay(1, eligibleNodes);
-
-                const slot1Dm1Submissions = 8;
-                const slot2Dm1Submissions = 6;
-
-                // Set some reward points and snapshot counts for dataMarket1 - slots 1 and 2, submissions 8 and 6 respectively
-                await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [1, 2], [slot1Dm1Submissions, slot2Dm1Submissions], 1, eligibleNodes);
-        
-                // Set some reward points and snapshot counts for dataMarket2
-                await proxyContract.updateRewardPoolSize(dataMarket2.target, rewardBasePoints);
-                await proxyContract.updateDailySnapshotQuota(dataMarket2.target, snapshotQuota);
-                
-                const slot1Dm2Submissions = 9;
-                const slot2Dm2Submissions = 3;
-                eligibleNodes = 1;
-                await dataMarket2.connect(sequencer2).updateEligibleNodesForDay(1, eligibleNodes);
-                // Set some reward points and snapshot counts for dataMarket2 - slots 4 and 5, submissions and 3 respectively
-                await proxyContract.connect(sequencer2).updateRewards(dataMarket2.target, [1, 2], [slot1Dm2Submissions, slot2Dm2Submissions], 1, eligibleNodes);
-
-            });
+    describe("Rewards", function () {
+        beforeEach(async function () {
+            // Assign snapshotters to slots in both data markets
+            const legacyConfig = {
+                legacyNodeCount: 100,
+                legacyNodeInitialClaimPercentage: 200000, // 20%
+                legacyNodeCliff: 30,
+                legacyNodeValue: ethers.parseEther("1000"),
+                legacyNodeVestingDays: 365,
+                legacyNodeVestingStart: (await time.latest()) + 86400, // 1 day from now
+                legacyTokensSentOnL1: ethers.parseEther("100"),
+                legacyNodeNonKycedCooldown: 7 * 86400 // 7 days
+            };
+            await expect(snapshotterState.configureLegacyNodes(
+                legacyConfig.legacyNodeCount,
+                legacyConfig.legacyNodeInitialClaimPercentage,
+                legacyConfig.legacyNodeCliff,
+                legacyConfig.legacyNodeValue,
+                legacyConfig.legacyNodeVestingDays,
+                legacyConfig.legacyNodeVestingStart,
+                legacyConfig.legacyTokensSentOnL1,
+                legacyConfig.legacyNodeNonKycedCooldown
+            )).to.emit(snapshotterState, "ConfigurationUpdated")
+              .withArgs("LegacyNodesConfig", legacyConfig.legacyNodeCount);
+            await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 2, true))
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 2)
+            await expect(snapshotterState.assignSnapshotterToNodeBulkAdmin(
+                [1, 2], 
+                [otherAccount1.address, otherAccount2.address]
+            )).to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount1.address, true)
+              .to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount2.address, true);
     
+            await proxyContract.updateAddresses(dataMarket1.target, 1, [sequencer1.address], [true]); // set sequencer1 as a sequencer
+            await proxyContract.updateAddresses(dataMarket2.target, 1, [sequencer2.address], [true]); // set sequencer2 as a sequencer
+
+        });
+
+
+        it("Should return correct rewards sum", async function () {
+            // Set some reward points and snapshot counts for dataMarket1
+            let eligibleNodes = 2;
+            const rewardBasePoints = 100;
+            const snapshotQuota = 5;
+            
+            await proxyContract.updateRewardPoolSize(dataMarket1.target, rewardBasePoints);
+            await proxyContract.updateDailySnapshotQuota(dataMarket1.target, snapshotQuota);
+            await dataMarket1.connect(sequencer1).updateEligibleNodesForDay(1, eligibleNodes);
+
+            const slot1Dm1Submissions = 8;
+            const slot2Dm1Submissions = 6;
+
+            // Set some reward points and snapshot counts for dataMarket1 - slots 1 and 2, submissions 8 and 6 respectively
+            await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [1, 2], [slot1Dm1Submissions, slot2Dm1Submissions], 1, eligibleNodes);
     
-            it("Should return correct rewards sum", async function () {
-                const expectedRewardsSlot1 = 150; // 50 for dataMarket1 + 100 for dataMarket2
-                const expectedRewardsSlot2 = 50; // 50 for dataMarket1
+            // Set some reward points and snapshot counts for dataMarket2
+            await proxyContract.updateRewardPoolSize(dataMarket2.target, rewardBasePoints);
+            await proxyContract.updateDailySnapshotQuota(dataMarket2.target, snapshotQuota);
+            
+            const slot1Dm2Submissions = 9;
+            const slot2Dm2Submissions = 3;
 
-                // Check total rewards for each slot
-                const slot1Dm1Rewards = await proxyContract.getSlotRewards(1);
-                const slot2Dm1Rewards = await proxyContract.getSlotRewards(2);
-                expect(slot1Dm1Rewards).to.equal(expectedRewardsSlot1);
-                expect(slot2Dm1Rewards).to.equal(expectedRewardsSlot2);
+            eligibleNodes = 1;
+            await dataMarket2.connect(sequencer2).updateEligibleNodesForDay(1, eligibleNodes);
+            // Set some reward points and snapshot counts for dataMarket2 - slots 4 and 5, submissions and 3 respectively
+            await proxyContract.connect(sequencer2).updateRewards(dataMarket2.target, [1, 2], [slot1Dm2Submissions, slot2Dm2Submissions], 1, eligibleNodes);
+            const expectedRewardsSlot1 = 150; // 50 for dataMarket1 + 100 for dataMarket2
+            const expectedRewardsSlot2 = 50; // 50 for dataMarket1
 
-                // Check data market state
-                const expectedEligibleRewardsDM1 = 50; // 100 / 2 eligible nodes
-                const expectedEligibleRewardsDM2 = 100; // 100 / 1 eligible node
+            // Check total rewards for each slot
+            const slot1Dm1Rewards = await proxyContract.getSlotRewards(1);
+            const slot2Dm1Rewards = await proxyContract.getSlotRewards(2);
+            expect(slot1Dm1Rewards).to.equal(expectedRewardsSlot1);
+            expect(slot2Dm1Rewards).to.equal(expectedRewardsSlot2);
 
-                const dm1SlotInfo1 = await dataMarket1.getSlotInfo(1);
-                const dm1SlotInfo2 = await dataMarket1.getSlotInfo(2);
-                const dm2SlotInfo1 = await dataMarket2.getSlotInfo(1);
-                const dm2SlotInfo2 = await dataMarket2.getSlotInfo(2);
+            // Check data market state
+            const expectedEligibleRewardsDM1 = 50; // 100 / 2 eligible nodes
+            const expectedEligibleRewardsDM2 = 100; // 100 / 1 eligible node
 
-                expect(dm1SlotInfo1.rewardPoints).to.equal(expectedEligibleRewardsDM1);
-                expect(dm1SlotInfo2.rewardPoints).to.equal(expectedEligibleRewardsDM1);
-                expect(dm2SlotInfo1.rewardPoints).to.equal(expectedEligibleRewardsDM2);
-                expect(dm2SlotInfo2.rewardPoints).to.equal(0);
+            const dm1SlotInfo1 = await dataMarket1.getSlotInfo(1);
+            const dm1SlotInfo2 = await dataMarket1.getSlotInfo(2);
+            const dm2SlotInfo1 = await dataMarket2.getSlotInfo(1);
+            const dm2SlotInfo2 = await dataMarket2.getSlotInfo(2);
 
-                // Check submission counts
-                expect(dm1SlotInfo1.currentDaySnapshotCount).to.equal(8);
-                expect(dm1SlotInfo2.currentDaySnapshotCount).to.equal(6);
-                expect(dm2SlotInfo1.currentDaySnapshotCount).to.equal(9);
-                expect(dm2SlotInfo2.currentDaySnapshotCount).to.equal(3);
+            expect(dm1SlotInfo1.rewardPoints).to.equal(expectedEligibleRewardsDM1);
+            expect(dm1SlotInfo2.rewardPoints).to.equal(expectedEligibleRewardsDM1);
+            expect(dm2SlotInfo1.rewardPoints).to.equal(expectedEligibleRewardsDM2);
+            expect(dm2SlotInfo2.rewardPoints).to.equal(0);
 
-                // Check reward pool size and daily snapshot quota
-                expect(await dataMarket1.rewardPoolSize()).to.equal(100);
-                expect(await dataMarket2.rewardPoolSize()).to.equal(100);
-                expect(await dataMarket1.dailySnapshotQuota()).to.equal(5);
-                expect(await dataMarket2.dailySnapshotQuota()).to.equal(5);
+            // Check submission counts
+            expect(dm1SlotInfo1.currentDaySnapshotCount).to.equal(8);
+            expect(dm1SlotInfo2.currentDaySnapshotCount).to.equal(6);
+            expect(dm2SlotInfo1.currentDaySnapshotCount).to.equal(9);
+            expect(dm2SlotInfo2.currentDaySnapshotCount).to.equal(3);
 
-                // Check eligible nodes for the day
-                expect(await dataMarket1.eligibleNodesForDay(1)).to.equal(2);
-                expect(await dataMarket2.eligibleNodesForDay(1)).to.equal(1);
-            });
+            // Check reward pool size and daily snapshot quota
+            expect(await dataMarket1.rewardPoolSize()).to.equal(100);
+            expect(await dataMarket2.rewardPoolSize()).to.equal(100);
+            expect(await dataMarket1.dailySnapshotQuota()).to.equal(5);
+            expect(await dataMarket2.dailySnapshotQuota()).to.equal(5);
+
+            // Check eligible nodes for the day
+            expect(await dataMarket1.eligibleNodesForDay(1)).to.equal(2);
+            expect(await dataMarket2.eligibleNodesForDay(1)).to.equal(1);
+        });
+
+        it("Should store rewards successfully", async function () {
+            await expect(proxyContract.updateRewardPoolSize(dataMarket1.target, 100)).not.to.be.reverted;
+            expect(await proxyContract.rewardPoolSize(dataMarket1.target)).to.be.equal(100);
+
+            // set otherAccount1 as a sequencer
+            const role = 1
+            await proxyContract.updateAddresses(
+                dataMarket1.target,
+                role,
+                [otherAccount1.address], 
+                [true],
+            );
+
+            const eligibleNodesForDayBefore = await dataMarket1.eligibleNodesForDay(1);
+            expect(eligibleNodesForDayBefore).to.equal(0);
+
+            const blockTimestamp1 = await time.latest();
+            const dailySnapshotQuota = await proxyContract.dailySnapshotQuota(dataMarket1.target);
+
+            // test sending 0 eligible nodes
+            await expect(proxyContract.connect(otherAccount1).updateRewards(
+                dataMarket1.target, 
+                [1], 
+                [dailySnapshotQuota], 
+                1,
+                0
+            )).to.not.be.reverted;
+
+            // test that rewards are not distributed
+            expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(0);
+
+            await dataMarket1.connect(otherAccount1).updateEligibleNodesForDay(1, 1);
+
+            const rewardPoolSize = await dataMarket1.rewardPoolSize();
+            const eligibleNodesForDayAfter = await dataMarket1.eligibleNodesForDay(1);
+            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDayAfter;
+
+            const blockTimestamp2 = await time.latest();
+            await expect(proxyContract.connect(otherAccount1).updateRewards(
+                dataMarket1.target, 
+                [1], 
+                [dailySnapshotQuota], 
+                1,
+                1
+            )).to.emit(proxyContract, "RewardsDistributedEvent")
+            .withArgs(dataMarket1.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp2 + 1);
+
+            expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(expectedRewardPoints);
+            expect(await proxyContract.slotSubmissionCount(dataMarket1.target, 1, 1)).to.equal(dailySnapshotQuota);
         });
     });
 
