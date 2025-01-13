@@ -94,7 +94,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
     uint256 public mintStartTime;
     uint256 public snapshotterAddressChangeCooldown;
     uint256 public snapshotterTokenClaimCooldown;
-    uint256 public MAX_SUPPLY = 10000;
+    uint256 public MAX_SUPPLY;
 
 
     mapping(address => EnumerableSet.UintSet) private userTokenIds;
@@ -190,6 +190,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         require(initialNodePrice > 0, "Node price must be greater than 0");
         nodePrice = initialNodePrice;
         name = initialName;
+        MAX_SUPPLY = 10000;
     }
 
     /**

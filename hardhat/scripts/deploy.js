@@ -41,9 +41,11 @@ async function main() {
   const storageContract = await upgrades.deployProxy(PowerloomNodes, 
     [owner, SNAPSHOTTER_STATE_INITIAL_NODE_PRICE, SNAPSHOTTER_STATE_INITIAL_NAME]
   );
+
   await storageContract.waitForDeployment();
   console.log("PowerloomNodes deployed to:", await storageContract.getAddress());
 
+  await storageContract.updateMaxSupply(MAX_SUPPLY);
   const adminValues = Array(SNAPSHOTTER_STATE_ADMINS.length).fill(true);
   await (await storageContract.updateAdmins(SNAPSHOTTER_STATE_ADMINS, adminValues)).wait();
   console.log("SnapshotterState admins updated to:", await storageContract.getAdmins());
