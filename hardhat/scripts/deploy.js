@@ -34,6 +34,7 @@ async function main() {
   const SNAPSHOTTER_STATE_INITIAL_NODE_PRICE = BigInt(process.env.SNAPSHOTTER_STATE_INITIAL_NODE_PRICE);
   const SNAPSHOTTER_STATE_INITIAL_NAME = process.env.SNAPSHOTTER_STATE_INITIAL_NAME;
   const DAILY_SNAPSHOT_QUOTA = Number(process.env.DAILY_SNAPSHOT_QUOTA);
+  const MAX_SUPPLY = Number(process.env.MAX_SUPPLY);
   console.log("Deploying contracts with the account:", deployer.address);
 
   // Deploy the storage contract
