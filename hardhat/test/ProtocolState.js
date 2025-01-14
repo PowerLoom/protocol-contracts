@@ -819,7 +819,6 @@ describe("PowerloomProtocolState", function () {
 
             const batchCid = "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnX";
             const epochId = currentEpoch.epochId;
-            console.log("epochId", epochId);
             const projectIds = ["test-project-1", "test-project-2"];
             const snapshotCids = ["QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR", "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnS"];
             const finalizedRootHash = ethers.encodeBytes32String("test-hash");
@@ -1749,6 +1748,8 @@ describe("PowerloomProtocolState", function () {
         it("Should get and set epoch related data from the data market contract", async function () {
             expect(await proxyContract.epochManager(dataMarket1.target)).to.be.equal(epochManager.address);
             expect(await proxyContract.getEpochManager(dataMarket1.target)).to.be.equal(epochManager.address);
+
+            expect(await dataMarket1.getTotalSnapshotterCount()).to.be.equal(1);
 
             await expect(proxyContract.updateEpochManager(dataMarket1.target, otherAccount2.address))
                 .to.not.be.reverted;
