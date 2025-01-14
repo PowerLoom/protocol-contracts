@@ -1198,6 +1198,7 @@ describe("PowerloomProtocolState", function () {
                 duplicateCids, 
                 finalizedRootHash
             )).to.be.revertedWith("E25");
+            expect(errorCodes["E25"]).to.equal("Snapshot for this project and epoch already exists!");
 
             const duplicateProjectIds2 = ["test-project-4", "test-project-4"];
             const duplicateCids2 = ["QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnU", "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnU"];
@@ -1210,7 +1211,7 @@ describe("PowerloomProtocolState", function () {
                 duplicateCids2, 
                 finalizedRootHash
             )).to.be.revertedWith("E25");
-
+            expect(errorCodes["E25"]).to.equal("Snapshot for this project and epoch already exists!");
         });
 
         it("Should store epochId to batchIds mapping", async function () {
@@ -1615,6 +1616,7 @@ describe("PowerloomProtocolState", function () {
                 [otherAccount1.address],
                 [true, true],
             )).to.be.revertedWith("E19");
+            expect(errorCodes["E19"]).to.equal("Input lengths do not match");
         });
 
         it("Should get total snapshotter count correctly", async function () {
@@ -2235,6 +2237,7 @@ describe("PowerloomProtocolState", function () {
                 snapshotCids,
                 finalizedCidsRootHash
             )).to.be.revertedWith("E04");
+            expect(errorCodes["E04"]).to.equal("onlySequencer");
 
             const slotId = 1;
             const submissions = 5;
@@ -2269,6 +2272,7 @@ describe("PowerloomProtocolState", function () {
                 epochId,
                 finalizedCidsRootHash
             )).to.be.revertedWith("E01");
+            expect(errorCodes["E01"]).to.equal("onlyValidator");
         });
 
         it("Should successfully limit access to the DataMarket onlyOwnerOrigin modified functions", async function () {
@@ -2284,6 +2288,7 @@ describe("PowerloomProtocolState", function () {
                 batchCid,
                 epochId
             )).to.be.revertedWith("E03");
+            expect(errorCodes["E03"]).to.equal("onlyOwner");
     
             await expect(proxyContract.connect(otherAccount1).forceCompleteConsensusAttestations(
                 dataMarket1.target,
@@ -2356,6 +2361,7 @@ describe("PowerloomProtocolState", function () {
                 1,
                 1
             )).to.be.revertedWith("E02");
+            expect(errorCodes["E02"]).to.equal("notActive");
 
             await expect(proxyContract.forceSkipEpoch(
                 dataMarket1.target,
