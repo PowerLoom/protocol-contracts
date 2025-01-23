@@ -282,11 +282,39 @@ contract PowerloomDataMarket is Ownable {
 
     /**
      * @dev Constructor for the PowerloomDataMarket contract
-     * @param _initializer Address of the contract initializer
+     * @param ownerAddress Address of the contract owner
+     * @param epochSize Size of each epoch
+     * @param sourceChainId ID of the source chain
+     * @param sourceChainBlockTime Block time of the source chain
+     * @param useBlockNumberAsEpochId Whether to use block number as epoch ID
+     * @param _protocolStateAddress Address of the ProtocolState contract
      */
     constructor(
-        address _initializer
-    ) Ownable(_initializer) {}
+        address ownerAddress,
+        uint8 epochSize,
+        uint256 sourceChainId,
+        uint256 sourceChainBlockTime,
+        bool useBlockNumberAsEpochId,
+        address _protocolStateAddress
+    ) Ownable(ownerAddress) {
+        EPOCH_SIZE = epochSize;
+        SOURCE_CHAIN_ID = sourceChainId;
+        // SOURCE CHAIN BLOCK TIME 10000 = 1 second
+        SOURCE_CHAIN_BLOCK_TIME = sourceChainBlockTime;
+        if (useBlockNumberAsEpochId) {
+            require(
+                epochSize == 1,
+                "E10"
+            );
+        }
+        USE_BLOCK_NUMBER_AS_EPOCH_ID = useBlockNumberAsEpochId;
+        deploymentBlockNumber = block.number;
+        // 24 should be divided by slotsPerDay
+        epochsInADay = DAY_SIZE / (SOURCE_CHAIN_BLOCK_TIME * epochSize);
+        protocolState = IPowerloomProtocolState(_protocolStateAddress);
+        isInitialized = true;
+
+    }
 
 
     function isValidator(address validatorAddress) public view returns (bool) {
@@ -311,45 +339,6 @@ contract PowerloomDataMarket is Ownable {
 
     function isEpochManager(address _address) public view returns (bool) {
         return epochManager == _address;
-    }
-
-
-    /**
-     * @dev Initializes the PowerloomDataMarket contract
-     * @param ownerAddress Address of the contract owner
-     * @param epochSize Size of each epoch
-     * @param sourceChainId ID of the source chain
-     * @param sourceChainBlockTime Block time of the source chain
-     * @param useBlockNumberAsEpochId Whether to use block number as epoch ID
-     * @param _protocolStateAddress Address of the ProtocolState contract
-     */
-    function initialize(
-        address ownerAddress,
-        uint8 epochSize,
-        uint256 sourceChainId,
-        uint256 sourceChainBlockTime,
-        bool useBlockNumberAsEpochId,
-        address _protocolStateAddress
-    ) external onlyOwner {
-        require(!isInitialized, "E09");
-
-        transferOwnership(ownerAddress);
-        EPOCH_SIZE = epochSize;
-        SOURCE_CHAIN_ID = sourceChainId;
-        // SOURCE CHAIN BLOCK TIME 10000 = 1 second
-        SOURCE_CHAIN_BLOCK_TIME = sourceChainBlockTime;
-        if (useBlockNumberAsEpochId) {
-            require(
-                epochSize == 1,
-                "E10"
-            );
-        }
-        USE_BLOCK_NUMBER_AS_EPOCH_ID = useBlockNumberAsEpochId;
-        deploymentBlockNumber = block.number;
-        // 24 should be divided by slotsPerDay
-        epochsInADay = DAY_SIZE / (SOURCE_CHAIN_BLOCK_TIME * epochSize);
-        protocolState = IPowerloomProtocolState(_protocolStateAddress);
-        isInitialized = true;
     }
 
     /**

@@ -57,12 +57,8 @@ contract DataMarketFactory {
         returns (PowerloomDataMarket)
     {   
         // Create a new PowerloomDataMarket instance
-        PowerloomDataMarket dataMarket = new PowerloomDataMarket(address(this));
+        PowerloomDataMarket dataMarket = new PowerloomDataMarket(ownerAddress, epochSize, sourceChainId, sourceChainBlockTime, useBlockNumberAsEpochId, protocolStateAddress);
         require(address(dataMarket) != address(0), "Failed to create DataMarket");
-
-        // Initialize the new DataMarket
-        dataMarket.initialize(ownerAddress, epochSize, sourceChainId, sourceChainBlockTime, useBlockNumberAsEpochId, protocolStateAddress);
-        require(dataMarket.isInitialized(), "Failed to initialize DataMarket");
 
         // Emit event for the newly created DataMarket
         emit DataMarketCreated(ownerAddress, epochSize, sourceChainId, sourceChainBlockTime, useBlockNumberAsEpochId, protocolStateAddress, address(dataMarket));
