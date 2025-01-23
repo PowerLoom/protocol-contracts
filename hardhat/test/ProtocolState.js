@@ -1814,8 +1814,8 @@ describe("PowerloomProtocolState", function () {
         });
 
         it("Should update day size", async function () {
-            await expect(proxyContract.updateDaySize(dataMarket1.target, 100)).not.to.be.reverted;
-            expect(await proxyContract.DAY_SIZE(dataMarket1.target)).to.be.equal(100);
+            await expect(proxyContract.updateDaySize(dataMarket1.target, 864000000*2)).not.to.be.reverted;
+            expect(await proxyContract.DAY_SIZE(dataMarket1.target)).to.be.equal(864000000*2);
         });
 
         it("Should get and update data market state", async function () {

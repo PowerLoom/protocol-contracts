@@ -145,6 +145,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param _address The new address of the data market factory
      */
     function updateDataMarketFactory(address _address) external onlyOwner {
+        require(_address != address(0), "E45");
         dataMarketFactory = DataMarketFactory(_address);
     }
 
@@ -153,6 +154,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param _address The new address of the snapshotter state contract
      */
     function updateSnapshotterState(address _address) external onlyOwner {
+        require(_address != address(0), "E45");
         snapshotterState = PowerloomNodes(payable(_address));
     }
 

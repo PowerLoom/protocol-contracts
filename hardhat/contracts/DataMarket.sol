@@ -297,6 +297,7 @@ contract PowerloomDataMarket is Ownable {
         bool useBlockNumberAsEpochId,
         address _protocolStateAddress
     ) Ownable(ownerAddress) {
+        require(ownerAddress != address(0), "E45");
         EPOCH_SIZE = epochSize;
         SOURCE_CHAIN_ID = sourceChainId;
         // SOURCE CHAIN BLOCK TIME 10000 = 1 second
@@ -347,8 +348,10 @@ contract PowerloomDataMarket is Ownable {
      */
     function updateDaySize(uint256 _daySize, address _sender) public onlyProtocolState {
         require(isOwner(_sender), "E03");
+        require(_daySize > 0, "E45");
         DAY_SIZE = _daySize;
         epochsInADay = DAY_SIZE / (SOURCE_CHAIN_BLOCK_TIME * EPOCH_SIZE);
+        require(epochsInADay != 0, "E45");
     }
 
     /**
@@ -402,6 +405,7 @@ contract PowerloomDataMarket is Ownable {
         uint256 _dailySnapshotQuota, address _sender
     ) public onlyProtocolState {
         require(isOwner(_sender), "E03");
+        require(_dailySnapshotQuota != 0, "E45");
         dailySnapshotQuota = _dailySnapshotQuota;
     }
 
@@ -422,6 +426,7 @@ contract PowerloomDataMarket is Ownable {
      */
     function updateEpochManager(address _address, address _sender) external onlyProtocolState {
         require(isOwner(_sender), "E03");
+        require(_address != address(0), "E45");
         epochManager = _address;
     }
 
@@ -563,6 +568,7 @@ contract PowerloomDataMarket is Ownable {
         address _sender
     ) public onlyProtocolState {
         require(isOwner(_sender), "E03");
+        require(_minAttestationsForConsensus != 0, "E45");
         minAttestationsForConsensus = _minAttestationsForConsensus;
     }
 
@@ -576,6 +582,7 @@ contract PowerloomDataMarket is Ownable {
     ) public onlyProtocolState {
         require(isOwner(_sender), "E03");
         require(newbatchSubmissionWindow > snapshotSubmissionWindow, "E41");
+        require(newbatchSubmissionWindow != 0, "E45");
         batchSubmissionWindow = newbatchSubmissionWindow;
     }
 
@@ -588,6 +595,7 @@ contract PowerloomDataMarket is Ownable {
         address _sender
     ) public onlyProtocolState {
         require(isOwner(_sender), "E03");
+        require(newsnapshotSubmissionWindow != 0, "E45");
         snapshotSubmissionWindow = newsnapshotSubmissionWindow;
     }
 
@@ -601,6 +609,7 @@ contract PowerloomDataMarket is Ownable {
     ) public onlyProtocolState {
         require(isOwner(_sender), "E03");
         require(newattestationSubmissionWindow > batchSubmissionWindow && batchSubmissionWindow > 0, "E42");
+        require(newattestationSubmissionWindow != 0, "E45");
         attestationSubmissionWindow = newattestationSubmissionWindow;
     }
 

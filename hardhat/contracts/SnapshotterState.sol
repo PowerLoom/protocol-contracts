@@ -170,6 +170,8 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
      * @param _maxSupply The new maximum supply
      */
     function updateMaxSupply(uint256 _maxSupply) public onlyOwner {
+        require(_maxSupply != 0, "E45");
+        require(_maxSupply > nodeCount, "E46");
         MAX_SUPPLY = _maxSupply;
         emit ConfigurationUpdated("MaxSupply", _maxSupply);
     }
@@ -242,6 +244,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
      * @param _mintStartTime The start time for minting
      */
     function setMintStartTime(uint256 _mintStartTime) public onlyOwner {
+        require(_mintStartTime != 0, "E45");
         mintStartTime = _mintStartTime;
         emit ConfigurationUpdated("MintStartTime", _mintStartTime);
     }
@@ -292,6 +295,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
      * @param _nodePrice The new price
      */
     function updateNodePrice(uint256 _nodePrice) public onlyOwner {
+        require(_nodePrice > 0, "E45");
         nodePrice = _nodePrice;
         emit ConfigurationUpdated("NodePrice", _nodePrice);
     }
@@ -587,7 +591,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
         emit NodeBurned(msg.sender, _nodeId);
         _disableNode(_nodeId);
         nodeInfo[_nodeId].burnedOn = block.timestamp;
-        
+
         
         if (nodeInfo[_nodeId].isLegacy){
             if (nodeInfo[_nodeId].isKyced){
