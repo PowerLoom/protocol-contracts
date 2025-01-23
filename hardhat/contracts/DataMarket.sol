@@ -764,12 +764,12 @@ contract PowerloomDataMarket is Ownable {
     function maxSnapshotsCid(
         string memory projectId,
         uint256 epochId
-    ) public view returns (string memory) {
+    ) public view returns (string memory, SnapshotStatus) {
         string memory cid = snapshotStatus[projectId][epochId].snapshotCid;
         if (bytes(cid).length > 0) {
-            return cid;
+            return (cid, snapshotStatus[projectId][epochId].status);
         }
-        return "";
+        return ("", SnapshotStatus.PENDING);
     }
 
     /**

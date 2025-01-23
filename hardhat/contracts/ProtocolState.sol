@@ -841,7 +841,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param epochId The ID of the epoch
      * @return string The CID of the snapshot with max attestations
      */
-    function maxSnapshotsCid(PowerloomDataMarket dataMarket, string memory projectId, uint256 epochId) public view returns (string memory) {
+    function maxSnapshotsCid(PowerloomDataMarket dataMarket, string memory projectId, uint256 epochId) public view returns (string memory, PowerloomDataMarket.SnapshotStatus) {
         return dataMarket.maxSnapshotsCid(projectId, epochId);
     }
 

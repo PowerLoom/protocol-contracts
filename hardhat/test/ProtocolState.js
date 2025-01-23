@@ -353,7 +353,8 @@ describe("PowerloomProtocolState", function () {
         });
 
         it("Should return empty string for empty cids in snapshot", async function () {
-            expect(await proxyContract.maxSnapshotsCid(dataMarket1.target, projectId, currentEpoch.epochId)).to.equal("");
+            expect((await proxyContract.maxSnapshotsCid(dataMarket1.target, projectId, currentEpoch.epochId))[0]).to.equal("");
+            expect((await proxyContract.maxSnapshotsCid(dataMarket1.target, projectId, currentEpoch.epochId))[1]).to.equal(0);
         });
 
         it("Should set the project first epoch id on batch submission", async function () {
@@ -589,7 +590,8 @@ describe("PowerloomProtocolState", function () {
             expect(project2StateAfterAttestation.snapshotCid).to.equal(snapshotCids[1]);
 
             expect(await proxyContract.lastFinalizedSnapshot(dataMarket1.target, projectIds[0])).to.equal(epochId);
-            expect(await proxyContract.maxSnapshotsCid(dataMarket1.target, projectIds[1], epochId)).to.equal(snapshotCids[1]);
+            expect((await proxyContract.maxSnapshotsCid(dataMarket1.target, projectIds[1], epochId))[0]).to.equal(snapshotCids[1]);
+            expect((await proxyContract.maxSnapshotsCid(dataMarket1.target, projectIds[1], epochId))[1]).to.equal(1);
             expect(await proxyContract.batchCidAttestationStatus(dataMarket1.target, batchCid)).to.equal(true);
         });
 
