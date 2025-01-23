@@ -343,18 +343,6 @@ contract PowerloomDataMarket is Ownable {
     }
 
     /**
-     * @dev Updates the DAY_SIZE and recalculates epochsInADay
-     * @param _daySize New value for DAY_SIZE
-     */
-    function updateDaySize(uint256 _daySize, address _sender) public onlyProtocolState {
-        require(isOwner(_sender), "E03");
-        require(_daySize > 0, "E45");
-        DAY_SIZE = _daySize;
-        epochsInADay = DAY_SIZE / (SOURCE_CHAIN_BLOCK_TIME * EPOCH_SIZE);
-        require(epochsInADay != 0, "E45");
-    }
-
-    /**
      * @dev Retrieves the batch CIDs for a given epoch ID
      * @param epochId The epoch ID to query
      * @return An array of batch CIDs associated with the epoch

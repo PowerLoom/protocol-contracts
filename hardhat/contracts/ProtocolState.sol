@@ -644,15 +644,6 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
     }
 
     /**
-     * @dev Updates the day size of a data market
-     * @param dataMarket The data market contract
-     * @param newDaySize The new day size
-     */
-    function updateDaySize(PowerloomDataMarket dataMarket, uint256 newDaySize) external {
-        dataMarket.updateDaySize(newDaySize, msg.sender);
-    }
-
-    /**
      * @dev Gets the daily snapshot quota of a data market
      * @param dataMarket The data market contract
      * @return The daily snapshot quota
