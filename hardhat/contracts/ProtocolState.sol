@@ -891,12 +891,14 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @notice Emits TriggerBatchResubmission or SnapshotBatchFinalized events based on the result
      */
     function forceCompleteConsensusAttestations(PowerloomDataMarket dataMarket, string memory batchCid, uint256 epochId) public {
-        bool TRIGGER_BATCH_RESUBMISSION = dataMarket.forceCompleteConsensusAttestations(batchCid, epochId, msg.sender);
+        (bool TRIGGER_BATCH_RESUBMISSION, bool BATCH_FINALIZED) = dataMarket.forceCompleteConsensusAttestations(batchCid, epochId, msg.sender);
         if(TRIGGER_BATCH_RESUBMISSION){
             emit TriggerBatchResubmission(address(dataMarket), epochId, batchCid, block.timestamp);
         } else {
-            _finalizeSnapshotBatchEvents(dataMarket, batchCid, epochId);
-            emit SnapshotBatchFinalized(address(dataMarket), epochId, batchCid, block.timestamp);
+            if(BATCH_FINALIZED){
+                _finalizeSnapshotBatchEvents(dataMarket, batchCid, epochId);
+                emit SnapshotBatchFinalized(address(dataMarket), epochId, batchCid, block.timestamp);
+            }
         }
     }
 

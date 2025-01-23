@@ -974,7 +974,8 @@ contract PowerloomDataMarket is Ownable {
      */
     function finalizeSnapshotBatch(string memory batchCid, uint256 epochId) private
     returns(
-        bool TRIGGER_BATCH_RESUBMISSION
+        bool TRIGGER_BATCH_RESUBMISSION, 
+        bool BATCH_FINALIZED
     ) {
         if (
             maxAttestationFinalizedRootHash[batchCid] ==
@@ -1012,6 +1013,7 @@ contract PowerloomDataMarket is Ownable {
                     );
                 }
             }
+            BATCH_FINALIZED = true;
             emit SnapshotBatchFinalized(epochId, batchCid, block.timestamp);
         } else {
             TRIGGER_BATCH_RESUBMISSION = true;
@@ -1030,11 +1032,15 @@ contract PowerloomDataMarket is Ownable {
         uint256 epochId,
         address _sender
     ) public onlyProtocolState returns (
-        bool TRIGGER_BATCH_RESUBMISSION
+        bool TRIGGER_BATCH_RESUBMISSION, bool BATCH_FINALIZED
     ) {
         require(isOwner(_sender), "E03");
         if (checkDynamicConsensusAttestations(batchCid, epochId)) {
-            TRIGGER_BATCH_RESUBMISSION = finalizeSnapshotBatch(batchCid, epochId);
+            (TRIGGER_BATCH_RESUBMISSION, BATCH_FINALIZED) = finalizeSnapshotBatch(batchCid, epochId);
+        }
+        else{
+            TRIGGER_BATCH_RESUBMISSION = true;
+            emit TriggerBatchResubmission(epochId, batchCid, block.timestamp);
         }
     }
 

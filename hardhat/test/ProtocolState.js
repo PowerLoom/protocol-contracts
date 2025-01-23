@@ -977,12 +977,8 @@ describe("PowerloomProtocolState", function () {
             timestampBefore = blockBefore.timestamp + 1;
 
             await expect(proxyContract.forceCompleteConsensusAttestations(dataMarket1.target, batchCid, epochId))
-                .to.emit(proxyContract, "SnapshotFinalized")
-                .withArgs(dataMarket1.target, epochId, epochEnd, projectIds[0], snapshotCids[0], blockTimestamp + 3)
-                .to.emit(proxyContract, "SnapshotFinalized")
-                .withArgs(dataMarket1.target, epochId, epochEnd, projectIds[1], snapshotCids[1], blockTimestamp + 3)
-                .to.emit(proxyContract, "ValidatorAttestationsInvalidated")
-                .withArgs(dataMarket1.target, epochId, batchCid, otherAccount1.address, timestampBefore);
+                .to.emit(proxyContract, "TriggerBatchResubmission")
+                .withArgs(dataMarket1.target, epochId, batchCid, timestampBefore);
         });
 
         it("Should trigger resubmission if validators are divergent", async function () {
