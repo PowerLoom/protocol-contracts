@@ -315,7 +315,7 @@ PowerloomNodes is a Soul Bound Token (SBT) contract that manages Powerloom Snaps
 
 ## Dependencies and Inheritance
 - `ERC1155Upgradeable`: Base token functionality
-- `OwnableUpgradeable`: Access control
+- `Ownable2StepUpgradeable`: Access control
 - `PausableUpgradeable`: Emergency stops
 - `ERC1155SupplyUpgradeable`: Supply tracking
 - `UUPSUpgradeable`: Upgrade pattern
