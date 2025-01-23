@@ -177,6 +177,8 @@ contract PowerloomDataMarket is Ownable {
     mapping(uint256 slotId => mapping(uint256 dayId => uint256 snapshotCount)) public slotSubmissionCount;
     mapping(uint256 slotId => uint256 slotRewardPoints) public slotRewardPoints;
     mapping(uint256 dayId => uint256 eligibleNodes) public eligibleNodesForDay;
+    mapping(uint256 dayId => mapping(uint256 slotId => bool rewardsDistributed)) public slotRewardsDistributedStatus;
+    mapping (uint256 dayId => uint256 slotsRemainingToBeRewarded) public slotsRemainingToBeRewardedCount;
 
     mapping(address validatorAddress => mapping(uint256 epochId => mapping(string batchCid => bool))) public validatorAttestationsReceived;
 
@@ -1055,14 +1057,21 @@ contract PowerloomDataMarket is Ownable {
     function updateEligibleNodesForDay(uint256 day, uint256 eligibleNodes, address _sender) public onlyProtocolState {
         require(isSequencer(_sender), "E04");
         if (eligibleNodesForDay[day] != 0) {
-            return;
+            if (slotsRemainingToBeRewardedCount[day] == 0) {
+                revert("E47");
+            }
+            else {
+                return;
+            }
         }
         eligibleNodesForDay[day] = eligibleNodes;
+        slotsRemainingToBeRewardedCount[day] = eligibleNodes;
     }
 
     function updateRewards(uint256 slotId, uint256 submissions, uint256 day, address _sender) public onlyProtocolState returns (bool) {
         require(isSequencer(_sender), "E04");
         require(day == dayCounter || day == dayCounter - 1, "E38");
+
         ISnapshotterState snapshotterState = protocolState
             .snapshotterState();
 
@@ -1074,11 +1083,16 @@ contract PowerloomDataMarket is Ownable {
         address snapshotterAddr = snapshotterState.nodeSnapshotterMapping(
             slotId
         );
+        if (slotRewardsDistributedStatus[day][slotId]) {
+            revert("E48");
+        }
 
         slotSubmissionCount[slotId][day] = submissions;
         if (submissions >= dailySnapshotQuota) {
             if (eligibleNodesForDay[day] != 0){
                 slotRewardPoints[slotId] += rewardPoolSize / eligibleNodesForDay[day];
+                slotRewardsDistributedStatus[day][slotId] = true;
+                slotsRemainingToBeRewardedCount[day]--;
                 emit RewardsDistributedEvent(
                     snapshotterAddr,
                     slotId,
