@@ -795,6 +795,10 @@ contract PowerloomDataMarket is Ownable {
                 projectIds.length > 0,
                 "E24"
             );
+            require(
+                !epochIdToBatchSubmissionsCompleted[epochId],
+                "E43"
+            );
             if (batchCidToProjects[batchCid].length > 0) {
                 delete batchCidToProjects[batchCid];
             }

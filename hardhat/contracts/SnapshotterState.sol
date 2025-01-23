@@ -588,6 +588,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
         _disableNode(_nodeId);
         nodeInfo[_nodeId].burnedOn = block.timestamp;
         
+        
         if (nodeInfo[_nodeId].isLegacy){
             if (nodeInfo[_nodeId].isKyced){
                 uint256 initialClaim = getLegacyInitialClaim();
