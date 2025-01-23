@@ -460,8 +460,12 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
         }
 
         if (node.snapshotterAddress != address(0)){
-            allSnapshotters[node.snapshotterAddress] = false;
-            emit allSnapshottersUpdated(node.snapshotterAddress, false);
+            snapshotterToNodeIds[node.snapshotterAddress].remove(_nodeId);
+
+            if (snapshotterToNodeIds[node.snapshotterAddress].length() == 0) {
+                allSnapshotters[node.snapshotterAddress] = false;
+                emit allSnapshottersUpdated(node.snapshotterAddress, false);
+            }
             node.snapshotterAddress = address(0);
         }
 
