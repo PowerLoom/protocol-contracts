@@ -477,8 +477,13 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param end The end of the epoch to skip
      */
     function forceSkipEpoch(PowerloomDataMarket dataMarket, uint256 begin, uint256 end) external {
-        dataMarket.forceSkipEpoch(begin, end);
-        emit EpochReleased(address(dataMarket), dataMarket.epochIdCounter(), begin, end, block.timestamp);
+        (bool DAY_STARTED, bool EPOCH_RELEASED) = dataMarket.forceSkipEpoch(begin, end);
+        if(DAY_STARTED){
+            emit DayStartedEvent(address(dataMarket), dataMarket.dayCounter(), block.timestamp);
+        }
+        if(EPOCH_RELEASED){
+            emit EpochReleased(address(dataMarket), dataMarket.epochIdCounter(), begin, end, block.timestamp);
+        }
     }
 
     /**

@@ -519,7 +519,10 @@ contract PowerloomDataMarket is Ownable {
     function forceSkipEpoch(
         uint256 begin,
         uint256 end
-    ) public onlyOwnerOrigin isActive {
+    ) public onlyOwnerOrigin isActive returns (bool, bool) {
+        bool DAY_STARTED = false;
+        bool EPOCH_RELEASED = false;
+
         require(end >= begin, "E20");
         require(end - begin + 1 == EPOCH_SIZE, "E21");
         require(((end - currentEpoch.end) % EPOCH_SIZE) == 0 , "E21");
@@ -536,7 +539,18 @@ contract PowerloomDataMarket is Ownable {
             end
         );
 
+        // Check if a new day has started
+        if (epochIdCounter % epochsInADay == 1 && epochIdCounter > 1) {
+            dayCounter += 1;
+            DAY_STARTED = true;
+
+            emit DayStartedEvent(dayCounter, block.timestamp);
+        }
+
+        EPOCH_RELEASED = true;
         emit EpochReleased(epochIdCounter, begin, end, block.timestamp);
+
+        return (DAY_STARTED, EPOCH_RELEASED);
     }
 
     /**
