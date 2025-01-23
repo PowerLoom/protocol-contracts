@@ -438,16 +438,6 @@ contract PowerloomDataMarket is Ownable {
     }
 
     /**
-     * @dev Updates the protocol state address
-     * @param _protocolState The new protocol state address
-     */
-    function updateProtocolState(
-        address _protocolState
-    ) public onlyOwnerOrigin {
-        protocolState = IPowerloomProtocolState(_protocolState);
-    }
-
-    /**
      * @dev Updates the epoch manager address
      * @param _address The new epoch manager address
      */

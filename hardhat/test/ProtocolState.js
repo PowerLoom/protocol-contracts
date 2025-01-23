@@ -226,17 +226,6 @@ describe("PowerloomProtocolState", function () {
         it("Should set the right protocol state proxy address", async function () {
             expect(await dataMarket1.protocolState()).to.equal(proxyContract.target);
         });
-
-        it("Should update protocol state in data market contract", async function () {
-            const PowerloomProtocolState = await ethers.getContractFactory("PowerloomProtocolState");
-            const newProxyContract = await upgrades.deployProxy(PowerloomProtocolState, [owner.address]);
-            await newProxyContract.waitForDeployment();
-
-            const updateTx = await dataMarket1.updateProtocolState(newProxyContract.target);
-            await updateTx.wait();
-
-            expect(await dataMarket1.protocolState()).to.equal(newProxyContract.target);
-        });
     });
 
     describe("Release Epoch", function () {
@@ -2341,9 +2330,6 @@ describe("PowerloomProtocolState", function () {
                 .to.be.revertedWith("E03");
 
             await expect(dataMarket1.connect(otherAccount1).loadCurrentDay(26))
-                .to.be.revertedWith("E03");
-
-            await expect(dataMarket1.connect(otherAccount1).updateProtocolState("0x0000000000000000000000000000000000000000"))
                 .to.be.revertedWith("E03");
 
             await expect(dataMarket1.connect(otherAccount1).updateAddresses(1, [otherAccount1.address], [true]))
