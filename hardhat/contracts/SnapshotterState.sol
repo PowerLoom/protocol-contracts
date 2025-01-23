@@ -225,6 +225,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         require(_legacyNodeInitialClaimPercentage <= 1e6, "Initial claim percentage must be less than 100%");
         require(_legacyNodeValue > 0, "Legacy node value must be greater than 0");
         require(_legacyTokensSentOnL1 < _legacyNodeValue, "Tokens sent on L1 must be less than the total node value");
+        require(_legacyNodeVestingDays > _legacyNodeCliff, "Vesting days must be greater than the cliff period");
         legacyNodeCount = _legacyNodeCount;
         legacyNodeInitialClaimPercentage = _legacyNodeInitialClaimPercentage;
         legacyNodeCliff = _legacyNodeCliff;
