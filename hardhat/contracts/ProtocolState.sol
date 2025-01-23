@@ -986,13 +986,11 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
 
         // Emit SnapshotFinalized events for each project in the batch
         for (uint i = 0; i < dataMarket.batchCidToProjectsLen(batchCid); i++) {
-            for (uint j = 0; j < dataMarket.batchCidToProjectsLen(batchCid); j++) {
-                string memory project = dataMarket.batchCidToProjects(batchCid, j);
+            string memory project = dataMarket.batchCidToProjects(batchCid, i);
 
-                (,string memory projectCid,) = dataMarket.snapshotStatus(project, epochId);
-                if (bytes(projectCid).length > 0) {
-                    emit SnapshotFinalized(address(dataMarket), epochId, epochEnd, project, projectCid, block.timestamp);
-                }
+            (,string memory projectCid,) = dataMarket.snapshotStatus(project, epochId);
+            if (bytes(projectCid).length > 0) {
+                emit SnapshotFinalized(address(dataMarket), epochId, epochEnd, project, projectCid, block.timestamp);
             }
         }
     }

@@ -969,25 +969,23 @@ contract PowerloomDataMarket is Ownable {
                 );
             }
             batchCidAttestationStatus[batchCid] = true;
-            for (uint i = 0; i < batchCidToProjects[batchCid].length; i++) {
-                string[] memory batchProjects = batchCidToProjects[batchCid];
-                for (uint j = 0; j < batchProjects.length; j++) {
-                    string memory projectCid = snapshotStatus[batchProjects[j]][epochId].snapshotCid;
-                    if (bytes(projectCid).length > 0) {
-                        snapshotStatus[batchProjects[j]][epochId].status = SnapshotStatus.FINALIZED;
-                        snapshotStatus[batchProjects[j]][epochId].timestamp = block.timestamp;
-                        lastFinalizedSnapshot[batchProjects[j]] = epochId;
-                        if (projectFirstEpochId[batchProjects[j]] == 0) {
-                            projectFirstEpochId[batchProjects[j]] = epochId;
-                        }
-                        emit SnapshotFinalized(
-                            epochId,
-                            epochInfo[epochId].epochEnd,
-                            batchProjects[j],
-                            snapshotStatus[batchProjects[j]][epochId].snapshotCid,
-                            block.timestamp
-                        );
+            string[] memory batchProjects = batchCidToProjects[batchCid];
+            for (uint j = 0; j < batchProjects.length; j++) {
+                string memory projectCid = snapshotStatus[batchProjects[j]][epochId].snapshotCid;
+                if (bytes(projectCid).length > 0) {
+                    snapshotStatus[batchProjects[j]][epochId].status = SnapshotStatus.FINALIZED;
+                    snapshotStatus[batchProjects[j]][epochId].timestamp = block.timestamp;
+                    lastFinalizedSnapshot[batchProjects[j]] = epochId;
+                    if (projectFirstEpochId[batchProjects[j]] == 0) {
+                        projectFirstEpochId[batchProjects[j]] = epochId;
                     }
+                    emit SnapshotFinalized(
+                        epochId,
+                        epochInfo[epochId].epochEnd,
+                        batchProjects[j],
+                        snapshotStatus[batchProjects[j]][epochId].snapshotCid,
+                        block.timestamp
+                    );
                 }
             }
             emit SnapshotBatchFinalized(epochId, batchCid, block.timestamp);
