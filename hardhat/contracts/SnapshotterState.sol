@@ -441,7 +441,8 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         
         uint256 excessETH = msg.value - cost;
         if (excessETH > 0) {
-            payable(msg.sender).transfer(excessETH);
+            (bool success, ) = payable(msg.sender).call{value: excessETH}("");
+            require(success, "Failed to send excess ETH");
         }
         _mintNode(amount, msg.sender, false, false);
     }
@@ -586,8 +587,8 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         if (nodeInfo[_nodeId].isLegacy){
             if (nodeInfo[_nodeId].isKyced){
                 uint256 initialClaim = getLegacyInitialClaim();
-                payable(msg.sender).transfer(initialClaim);
-            
+                (bool success, ) = payable(msg.sender).call{value: initialClaim}("");
+                require(success, "Failed to send initial claim");
                 nodeIdToVestingInfo[_nodeId] = LegacyNodeVestingInfo(
                     msg.sender,
                     initialClaim,
@@ -722,7 +723,8 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
                 require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
 
                 node.claimedTokens = true;
-                payable(msg.sender).transfer(_claimableNodeTokens);
+                (bool success, ) = payable(msg.sender).call{value: _claimableNodeTokens}("");
+                require(success, "Failed to send legacy node tokens");
                 emit LegacyNodeTokensClaimed(msg.sender, _nodeId, _claimableNodeTokens);
             }
         }
@@ -733,7 +735,8 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
             require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
 
             node.claimedTokens = true;
-            payable(msg.sender).transfer(_claimableNodeTokens);
+            (bool success, ) = payable(msg.sender).call{value: _claimableNodeTokens}("");
+            require(success, "Failed to send snapshotter tokens");
             emit SnapshotterTokensClaimed(msg.sender, _nodeId, _claimableNodeTokens);
         }
     }
@@ -750,7 +753,8 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
      */
     function emergencyWithdraw() public onlyOwner {
         uint256 balance = address(this).balance;
-        payable(msg.sender).transfer(balance);
+        (bool success, ) = payable(msg.sender).call{value: balance}("");
+        require(success, "Failed to send funds");
         emit EmergencyWithdraw(msg.sender, balance);
     }
 

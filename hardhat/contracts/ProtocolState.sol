@@ -767,7 +767,9 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
         require(rewards > 0, "No rewards to claim");
         user.totalClaimed += rewards;
         user.lastClaimed = block.timestamp;
-        payable(_user).transfer(rewards);
+        
+        (bool success, ) = payable(_user).call{value: rewards}("");
+        require(success, "Failed to send rewards");
         emit RewardsClaimed(_user, rewards, block.timestamp);
     }
 
@@ -1005,7 +1007,8 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      */
     function emergencyWithdraw() public onlyOwner {
         uint256 balance = address(this).balance;
-        payable(msg.sender).transfer(balance);
+        (bool success, ) = payable(msg.sender).call{value: balance}("");
+        require(success, "Failed to send funds");
         emit EmergencyWithdraw(msg.sender, balance);
     }
 
