@@ -592,6 +592,7 @@ contract PowerloomDataMarket is Ownable {
     function updateBatchSubmissionWindow(
         uint256 newbatchSubmissionWindow
     ) public onlyOwnerOrigin {
+        require(newbatchSubmissionWindow > snapshotSubmissionWindow, "E41");
         batchSubmissionWindow = newbatchSubmissionWindow;
     }
 
@@ -612,6 +613,7 @@ contract PowerloomDataMarket is Ownable {
     function updateAttestationSubmissionWindow(
         uint256 newattestationSubmissionWindow
     ) public onlyOwnerOrigin {
+        require(newattestationSubmissionWindow > batchSubmissionWindow && batchSubmissionWindow > 0, "E42");
         attestationSubmissionWindow = newattestationSubmissionWindow;
     }
 

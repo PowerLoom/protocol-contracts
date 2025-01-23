@@ -38,6 +38,8 @@
     "E37": "DataMarket fallback not enabled",
     "E38": "Cannot update rewards for past or future days",
     "E39": "Batch submissions completed for this epoch",
-    "E40": "Attestation already received from this validator for this epoch and batch"
+    "E40": "Attestation already received from this validator for this epoch and batch",
+    "E41": "Batch submission window must be greater than snapshot submission window",
+    "E42": "Attestation submission window must be greater than batch submission window"
   }
   

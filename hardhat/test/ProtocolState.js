@@ -1847,11 +1847,12 @@ describe("PowerloomProtocolState", function () {
             await expect(proxyContract.updateSnapshotSubmissionWindow(dataMarket1.target, 10)).not.to.be.reverted;
             expect(await proxyContract.snapshotSubmissionWindow(dataMarket1.target)).to.be.equal(10);
 
-            await expect(proxyContract.updateAttestationSubmissionWindow(dataMarket1.target, 10)).not.to.be.reverted;
-            expect(await proxyContract.attestationSubmissionWindow(dataMarket1.target)).to.be.equal(10);
 
-            await expect(proxyContract.updateBatchSubmissionWindow(dataMarket1.target, 10)).not.to.be.reverted;
-            expect(await proxyContract.batchSubmissionWindow(dataMarket1.target)).to.be.equal(10);
+            await expect(proxyContract.updateBatchSubmissionWindow(dataMarket1.target, 20)).not.to.be.reverted;
+            expect(await proxyContract.batchSubmissionWindow(dataMarket1.target)).to.be.equal(20);
+
+            await expect(proxyContract.updateAttestationSubmissionWindow(dataMarket1.target, 30)).not.to.be.reverted;
+            expect(await proxyContract.attestationSubmissionWindow(dataMarket1.target)).to.be.equal(30);
 
             await expect(proxyContract.loadSlotSubmissions(dataMarket1.target, 1, 1, 20)).not.to.be.reverted;
             expect(await proxyContract.slotSubmissionCount(dataMarket1.target, 1, 1)).to.be.equal(20);
