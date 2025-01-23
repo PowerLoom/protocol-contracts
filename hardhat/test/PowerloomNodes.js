@@ -733,7 +733,7 @@ describe("PowerloomNodes", function () {
             
             const vestingStart = (await time.latest()) + 86400; // 1 day from now
             const nodeValue = ethers.parseEther("10");
-            const sentOnL1 = ethers.parseEther("1");
+            const sentOnL1 = ethers.parseEther("0");
             const initialClaimPercentage = 200000;
             const vestingDays = 365;
             const cliff = 30;
@@ -902,7 +902,7 @@ describe("PowerloomNodes", function () {
             const legacyNodeValue = ethers.parseEther("100");
             const legacyNodeVestingDays = 365;
             const legacyNodeVestingStart = await time.latest();
-            const legacyTokensSentOnL1 = ethers.parseEther("10");
+            const legacyTokensSentOnL1 = ethers.parseEther("0");
             const legacyNodeNonKycedCooldown = 60 * 60 * 24 * 30; // 30 days
 
             await powerloomNodes.configureLegacyNodes(
@@ -970,7 +970,7 @@ describe("PowerloomNodes", function () {
                 .to.be.revertedWith("Need to Burn the Node First");
 
             // Burn the node
-            await expect(powerloomNodes.connect(user2).burnNode(nonKycedNodeId));
+            await expect(powerloomNodes.connect(user2).burnNode(nonKycedNodeId)).to.emit(powerloomNodes, "NodeBurned");
 
             const claimTxNonKyced = await powerloomNodes.connect(user2).claimNodeTokens(nonKycedNodeId);
             await expect(claimTxNonKyced)

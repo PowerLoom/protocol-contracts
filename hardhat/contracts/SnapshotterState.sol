@@ -620,7 +620,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         uint256 PRECISION_FACTOR = 1e9;
         uint256 daysSinceVestingStarted = ((block.timestamp - legacyNodeVestingStart) * PRECISION_FACTOR) / 1 days;
         uint256 initialClaim = getLegacyInitialClaim();
-        uint256 totalTokens = legacyNodeValue - initialClaim;
+        uint256 totalTokens = legacyNodeValue - initialClaim - legacyTokensSentOnL1;
         
         if (daysSinceVestingStarted/PRECISION_FACTOR < legacyNodeCliff) {
             return 0;
