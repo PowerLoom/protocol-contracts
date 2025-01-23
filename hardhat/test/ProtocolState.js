@@ -1348,7 +1348,6 @@ describe("PowerloomProtocolState", function () {
             
             await proxyContract.updateRewardPoolSize(dataMarket1.target, rewardBasePoints);
             await proxyContract.updateDailySnapshotQuota(dataMarket1.target, snapshotQuota);
-            await dataMarket1.connect(sequencer1).updateEligibleNodesForDay(1, eligibleNodes);
 
             const slot1Dm1Submissions = 8;
             const slot2Dm1Submissions = 6;
@@ -1364,7 +1363,6 @@ describe("PowerloomProtocolState", function () {
             const slot2Dm2Submissions = 3;
 
             eligibleNodes = 1;
-            await dataMarket2.connect(sequencer2).updateEligibleNodesForDay(1, eligibleNodes);
             // Set some reward points and snapshot counts for dataMarket2 - slots 4 and 5, submissions and 3 respectively
             await proxyContract.connect(sequencer2).updateRewards(dataMarket2.target, [1, 2], [slot1Dm2Submissions, slot2Dm2Submissions], 1, eligibleNodes);
             const expectedRewardsSlot1 = 150; // 50 for dataMarket1 + 100 for dataMarket2
@@ -1438,11 +1436,8 @@ describe("PowerloomProtocolState", function () {
             // test that rewards are not distributed
             expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(0);
 
-            await dataMarket1.connect(otherAccount1).updateEligibleNodesForDay(1, 1);
-
             const rewardPoolSize = await dataMarket1.rewardPoolSize();
-            const eligibleNodesForDayAfter = await dataMarket1.eligibleNodesForDay(1);
-            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDayAfter;
+            const expectedRewardPoints = rewardPoolSize / 1n;
 
             const blockTimestamp2 = await time.latest();
             await expect(proxyContract.connect(otherAccount1).updateRewards(
@@ -1469,7 +1464,7 @@ describe("PowerloomProtocolState", function () {
             );
 
             const rewardPoolSize = ethers.parseEther("100");
-            await expect(dataMarket1.connect(owner).updateRewardPoolSize(rewardPoolSize)).to.not.be.reverted;
+            await expect(proxyContract.connect(owner).updateRewardPoolSize(dataMarket1.target, rewardPoolSize)).to.not.be.reverted;
 
             // send rewards for distribution
             await owner.sendTransaction({
@@ -1510,8 +1505,8 @@ describe("PowerloomProtocolState", function () {
 
         it("Should successfully claim rewards from multiple data markets", async function () {
             const rewardPoolSize = ethers.parseEther("100");
-            await expect(dataMarket1.connect(owner).updateRewardPoolSize(rewardPoolSize)).to.not.be.reverted;
-            await expect(dataMarket2.connect(owner).updateRewardPoolSize(rewardPoolSize)).to.not.be.reverted;
+            await expect(proxyContract.connect(owner).updateRewardPoolSize(dataMarket1.target, rewardPoolSize)).to.not.be.reverted;
+            await expect(proxyContract.connect(owner).updateRewardPoolSize(dataMarket2.target, rewardPoolSize)).to.not.be.reverted;
 
             await proxyContract.updateAddresses(
                 dataMarket1.target,
@@ -2154,11 +2149,9 @@ describe("PowerloomProtocolState", function () {
                 [true],
             );
 
-            await dataMarket1.connect(otherAccount1).updateEligibleNodesForDay(1, 1);
 
             const rewardPoolSize = await dataMarket1.rewardPoolSize();
-            const eligibleNodesForDay = await dataMarket1.eligibleNodesForDay(1);
-            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDay;
+            const expectedRewardPoints = rewardPoolSize / 1n;
 
             const dailySnapshotQuota = await proxyContract.dailySnapshotQuota(dataMarket1.target);
 
@@ -2233,10 +2226,12 @@ describe("PowerloomProtocolState", function () {
             const submissions = 5;
             const day = 1;
             
-            await expect(dataMarket1.connect(otherAccount2).updateRewards(
-                slotId,
-                submissions,
-                day
+            await expect(proxyContract.connect(otherAccount2).updateRewards(
+                dataMarket1.target,
+                [slotId],
+                [submissions],
+                day,
+                1
             )).to.be.revertedWith("E04");
 
             await expect(proxyContract.connect(otherAccount2).updateRewards(
@@ -2247,7 +2242,8 @@ describe("PowerloomProtocolState", function () {
                 1
             )).to.be.revertedWith("E04");
 
-            await expect(dataMarket1.connect(otherAccount2).endBatchSubmissions(
+            await expect(proxyContract.connect(otherAccount2).endBatchSubmissions(
+                dataMarket1.target,
                 epochId
             )).to.be.revertedWith("E04");
 
@@ -2274,7 +2270,8 @@ describe("PowerloomProtocolState", function () {
             const newRewardPoolSize = ethers.parseEther("2000");
             const newEpochManager = otherAccount2.address;
     
-            await expect(dataMarket1.connect(otherAccount1).forceCompleteConsensusAttestations(
+            await expect(proxyContract.connect(otherAccount1).forceCompleteConsensusAttestations(
+                dataMarket1.target,
                 batchCid,
                 epochId
             )).to.be.revertedWith("E03");
@@ -2286,53 +2283,85 @@ describe("PowerloomProtocolState", function () {
                 epochId
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateSnapshotSubmissionWindow(
+            await expect(proxyContract.connect(otherAccount1).updateSnapshotSubmissionWindow(
+                dataMarket1.target,
                 newWindow
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateBatchSubmissionWindow(
+            await expect(proxyContract.connect(otherAccount1).updateBatchSubmissionWindow(
+                dataMarket1.target,
                 newWindow
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateAttestationSubmissionWindow(
+            await expect(proxyContract.connect(otherAccount1).updateAttestationSubmissionWindow(
+                dataMarket1.target,
                 newWindow
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateMinAttestationsForConsensus(
+            await expect(proxyContract.connect(otherAccount1).updateMinAttestationsForConsensus(
+                dataMarket1.target,
                 newWindow
             )).to.be.revertedWith("E03");
 
-            await expect(dataMarket1.connect(otherAccount1).updateDailySnapshotQuota(
+            await expect(proxyContract.connect(otherAccount1).updateDailySnapshotQuota(
+                dataMarket1.target,
                 newQuota
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateRewardPoolSize(
+            await expect(proxyContract.connect(otherAccount1).updateRewardPoolSize(
+                dataMarket1.target,
                 newRewardPoolSize
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateEpochManager(
+            await expect(proxyContract.connect(otherAccount1).updateEpochManager(
+                dataMarket1.target,
                 newEpochManager
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).toggleRewards())
+            await expect(proxyContract.connect(otherAccount1).toggleRewards(
+                dataMarket1.target
+            ))
                 .to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateDaySize(100))
+            await expect(proxyContract.connect(otherAccount1).updateDaySize(
+                dataMarket1.target,
+                100
+            ))
                 .to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).setSequencerId("test-id"))
+            await expect(proxyContract.connect(otherAccount1).setSequencerId(
+                dataMarket1.target,
+                "test-id"
+            ))
                 .to.be.revertedWith("E08");
 
-            await expect(dataMarket1.connect(otherAccount1).forceSkipEpoch(1, 100))
+            await expect(proxyContract.connect(otherAccount1).forceSkipEpoch(
+                dataMarket1.target,
+                1, 
+                100
+            ))
                 .to.be.revertedWith("E03");
 
-            await expect(dataMarket1.connect(otherAccount1).loadSlotSubmissions(1, 1, 20))
+            await expect(proxyContract.connect(otherAccount1).loadSlotSubmissions(
+                dataMarket1.target,
+                1, 
+                1, 
+                20
+            ))
                 .to.be.revertedWith("E03");
 
-            await expect(dataMarket1.connect(otherAccount1).loadCurrentDay(26))
+            await expect(proxyContract.connect(otherAccount1).loadCurrentDay(
+                dataMarket1.target,
+                26
+            ))
                 .to.be.revertedWith("E03");
 
-            await expect(dataMarket1.connect(otherAccount1).updateAddresses(1, [otherAccount1.address], [true]))
+            await expect(proxyContract.connect(otherAccount1).updateAddresses(
+                dataMarket1.target,
+                1, 
+                [otherAccount1.address], 
+                [true]
+            ))
                 .to.be.revertedWith("E03");
         });
 

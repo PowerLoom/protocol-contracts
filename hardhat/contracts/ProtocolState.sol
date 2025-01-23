@@ -245,7 +245,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
         address[] calldata _addresses, 
         bool[] calldata _status
     ) external {
-        PowerloomDataMarket.Role ROLE = dataMarket.updateAddresses(role, _addresses, _status);
+        PowerloomDataMarket.Role ROLE = dataMarket.updateAddresses(role, _addresses, _status, msg.sender);
         for (uint256 i = 0; i < _addresses.length; i++) {
             if (ROLE == PowerloomDataMarket.Role.VALIDATOR) {
                 emit ValidatorsUpdated(address(dataMarket), _addresses[i], _status[i]);
@@ -264,7 +264,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param _minAttestationsForConsensus The new minimum number of attestations for consensus
      */
     function updateMinAttestationsForConsensus(PowerloomDataMarket dataMarket, uint256 _minAttestationsForConsensus) external {
-        dataMarket.updateMinAttestationsForConsensus(_minAttestationsForConsensus);
+        dataMarket.updateMinAttestationsForConsensus(_minAttestationsForConsensus, msg.sender);
     }
 
     /**
@@ -273,7 +273,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param newbatchSubmissionWindow The new batch submission window
      */
     function updateBatchSubmissionWindow(PowerloomDataMarket dataMarket, uint256 newbatchSubmissionWindow) external {
-        dataMarket.updateBatchSubmissionWindow(newbatchSubmissionWindow);
+        dataMarket.updateBatchSubmissionWindow(newbatchSubmissionWindow, msg.sender);
     }
 
     /**
@@ -282,7 +282,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param newsnapshotSubmissionWindow The new snapshot submission window
      */
     function updateSnapshotSubmissionWindow(PowerloomDataMarket dataMarket, uint256 newsnapshotSubmissionWindow) external {
-        dataMarket.updateSnapshotSubmissionWindow(newsnapshotSubmissionWindow);
+        dataMarket.updateSnapshotSubmissionWindow(newsnapshotSubmissionWindow, msg.sender);
     }
 
     /**
@@ -291,7 +291,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param newattestationSubmissionWindow The new attestation submission window
      */
     function updateAttestationSubmissionWindow(PowerloomDataMarket dataMarket, uint256 newattestationSubmissionWindow) external{
-        dataMarket.updateAttestationSubmissionWindow(newattestationSubmissionWindow);
+        dataMarket.updateAttestationSubmissionWindow(newattestationSubmissionWindow, msg.sender);
     }
 
     /**
@@ -302,7 +302,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param snapshotCount The number of snapshots
      */
     function loadSlotSubmissions(PowerloomDataMarket dataMarket, uint256 slotId, uint256 dayId, uint256 snapshotCount) external {
-        dataMarket.loadSlotSubmissions(slotId, dayId, snapshotCount);
+        dataMarket.loadSlotSubmissions(slotId, dayId, snapshotCount, msg.sender);
     }
 
     /**
@@ -311,7 +311,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param _dayCounter The day counter to set
      */
     function loadCurrentDay(PowerloomDataMarket dataMarket, uint256 _dayCounter) external {
-        dataMarket.loadCurrentDay(_dayCounter);
+        dataMarket.loadCurrentDay(_dayCounter, msg.sender);
     }
 
 
@@ -390,7 +390,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param _address The new epoch manager address
      */
     function updateEpochManager(PowerloomDataMarket dataMarket, address _address) external {
-        dataMarket.updateEpochManager(_address);
+        dataMarket.updateEpochManager(_address, msg.sender);
     }
 
     /**
@@ -477,7 +477,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param end The end of the epoch to skip
      */
     function forceSkipEpoch(PowerloomDataMarket dataMarket, uint256 begin, uint256 end) external {
-        (bool DAY_STARTED, bool EPOCH_RELEASED) = dataMarket.forceSkipEpoch(begin, end);
+        (bool DAY_STARTED, bool EPOCH_RELEASED) = dataMarket.forceSkipEpoch(begin, end, msg.sender);
         if(DAY_STARTED){
             emit DayStartedEvent(address(dataMarket), dataMarket.dayCounter(), block.timestamp);
         }
@@ -493,7 +493,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param end The end of the epoch to release
      */
     function releaseEpoch(PowerloomDataMarket dataMarket, uint256 begin, uint256 end) external {
-        (bool DAY_STARTED, bool EPOCH_RELEASED) = dataMarket.releaseEpoch(begin, end);
+        (bool DAY_STARTED, bool EPOCH_RELEASED) = dataMarket.releaseEpoch(begin, end, msg.sender);
         if(DAY_STARTED){
             emit DayStartedEvent(address(dataMarket), dataMarket.dayCounter(), block.timestamp);
         }
@@ -529,7 +529,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param _sequencerId The new sequencer ID
      */
     function setSequencerId(PowerloomDataMarket dataMarket, string memory _sequencerId) public {
-        dataMarket.setSequencerId(_sequencerId);
+        dataMarket.setSequencerId(_sequencerId, msg.sender);
     }
 
     /**
@@ -611,7 +611,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param dataMarket The data market contract
      */
     function toggleRewards(PowerloomDataMarket dataMarket) external {
-        dataMarket.toggleRewards();
+        dataMarket.toggleRewards(msg.sender);
     }
 
     /**
@@ -638,7 +638,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param newRewardPoolSize The new reward pool size
      */
     function updateRewardPoolSize(PowerloomDataMarket dataMarket, uint256 newRewardPoolSize) external {
-        dataMarket.updateRewardPoolSize(newRewardPoolSize);
+        dataMarket.updateRewardPoolSize(newRewardPoolSize, msg.sender);
     }
 
     /**
@@ -647,7 +647,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param newDaySize The new day size
      */
     function updateDaySize(PowerloomDataMarket dataMarket, uint256 newDaySize) external {
-        dataMarket.updateDaySize(newDaySize);
+        dataMarket.updateDaySize(newDaySize, msg.sender);
     }
 
     /**
@@ -665,7 +665,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param _dailySnapshotQuota The new daily snapshot quota
      */
     function updateDailySnapshotQuota(PowerloomDataMarket dataMarket, uint256 _dailySnapshotQuota) external {
-        dataMarket.updateDailySnapshotQuota(_dailySnapshotQuota);
+        dataMarket.updateDailySnapshotQuota(_dailySnapshotQuota, msg.sender);
     }
 
     /**
@@ -736,11 +736,11 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
         uint256 eligibleNodes
     ) external {
         if (eligibleNodes != 0) {
-            dataMarket.updateEligibleNodesForDay(day, eligibleNodes);
+            dataMarket.updateEligibleNodesForDay(day, eligibleNodes, msg.sender);
         }
         // Iterate through all provided slots
         for (uint i = 0; i < slotIds.length; i++) {
-            bool status = dataMarket.updateRewards(slotIds[i], submissionsList[i], day);
+            bool status = dataMarket.updateRewards(slotIds[i], submissionsList[i], day, msg.sender);
             if(status){
                 address slotOwner = snapshotterState.nodeIdToOwner(slotIds[i]);
                 (address snapshotterAddress,,,,,,,,,) = snapshotterState.nodeInfo(slotIds[i]);
@@ -861,7 +861,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
         string[] memory snapshotCids,
         bytes32 finalizedCidsRootHash
     ) external {
-        (bool SNAPSHOT_BATCH_SUBMITTED, bool DELAYED_BATCH_SUBMITTED) = dataMarket.submitSubmissionBatch(batchCid, epochId, projectIds, snapshotCids, finalizedCidsRootHash);
+        (bool SNAPSHOT_BATCH_SUBMITTED, bool DELAYED_BATCH_SUBMITTED) = dataMarket.submitSubmissionBatch(batchCid, epochId, projectIds, snapshotCids, finalizedCidsRootHash, msg.sender);
         if(SNAPSHOT_BATCH_SUBMITTED){
             emit SnapshotBatchSubmitted(address(dataMarket), batchCid, epochId, block.timestamp);        
         }
@@ -891,7 +891,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @notice Emits TriggerBatchResubmission or SnapshotBatchFinalized events based on the result
      */
     function forceCompleteConsensusAttestations(PowerloomDataMarket dataMarket, string memory batchCid, uint256 epochId) public {
-        bool TRIGGER_BATCH_RESUBMISSION = dataMarket.forceCompleteConsensusAttestations(batchCid, epochId);
+        bool TRIGGER_BATCH_RESUBMISSION = dataMarket.forceCompleteConsensusAttestations(batchCid, epochId, msg.sender);
         if(TRIGGER_BATCH_RESUBMISSION){
             emit TriggerBatchResubmission(address(dataMarket), epochId, batchCid, block.timestamp);
         } else {
@@ -955,7 +955,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
         uint256 epochId,
         bytes32 finalizedCidsRootHash
     ) external {
-        bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED = dataMarket.submitBatchAttestation(batchCid, epochId, finalizedCidsRootHash);
+        bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED = dataMarket.submitBatchAttestation(batchCid, epochId, finalizedCidsRootHash, msg.sender);
         if(SNAPSHOT_BATCH_ATTESTATION_SUBMITTED) {
             emit SnapshotBatchAttestationSubmitted(address(dataMarket), batchCid, epochId, block.timestamp, msg.sender);
         } else {
@@ -970,7 +970,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @notice Emits a BatchSubmissionsCompleted event
      */
     function endBatchSubmissions(PowerloomDataMarket dataMarket, uint256 epochId) public {
-        dataMarket.endBatchSubmissions(epochId);
+        dataMarket.endBatchSubmissions(epochId, msg.sender);
         emit BatchSubmissionsCompleted(address(dataMarket), epochId, block.timestamp);
     }
 

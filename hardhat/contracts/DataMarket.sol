@@ -258,16 +258,7 @@ contract PowerloomDataMarket is Ownable {
     );
     event BatchSubmissionsCompleted(uint256 indexed epochId, uint256 timestamp);
 
-    /**
-     * @dev Modifier to restrict access to validators only
-     */
-    modifier onlyValidator() {
-        require(
-            validatorSet.contains(tx.origin),
-            "E01"
-        );
-        _;
-    }
+
 
     /**
      * @dev Modifier to check if the contract is active
@@ -280,46 +271,14 @@ contract PowerloomDataMarket is Ownable {
         _;
     }
 
-    /**
-     * @dev Modifier to restrict access to the contract owner only
-     */
-    modifier onlyOwnerOrigin() {
-        require(owner() == tx.origin, "E03");
-        _;
-    }
-
-    /**
-     * @dev Modifier to restrict access to sequencers only
-     */
-    modifier onlySequencer() {
+    modifier onlyProtocolState() {
         require(
-            sequencerSet.contains(tx.origin),
-            "E04"
+            msg.sender == address(protocolState),
+            "E44"
         );
         _;
     }
 
-    /**
-     * @dev Modifier to restrict access to the epoch manager only
-     */
-    modifier onlyEpochManager() {
-        require(
-            epochManager == tx.origin,
-            "E05"
-        );
-        _;
-    }
-
-    /**
-     * @dev Modifier to restrict access to the contract owner or admins
-     */
-    modifier onlyOwnerOrAdmin() {
-        require(
-            owner() == tx.origin || adminSet.contains(tx.origin),
-            "E08"
-        );
-        _;
-    }
 
     /**
      * @dev Constructor for the PowerloomDataMarket contract
@@ -328,6 +287,32 @@ contract PowerloomDataMarket is Ownable {
     constructor(
         address _initializer
     ) Ownable(_initializer) {}
+
+
+    function isValidator(address validatorAddress) public view returns (bool) {
+        return validatorSet.contains(validatorAddress);
+    }
+
+    function isOwner(address ownerAddress) public view returns (bool) {
+        return owner() == ownerAddress;
+    }
+
+    function isSequencer(address sequencerAddress) public view returns (bool) {
+        return sequencerSet.contains(sequencerAddress);
+    }
+
+    function isAdmin(address adminAddress) public view returns (bool) {
+        return adminSet.contains(adminAddress);
+    }
+
+    function isOwnerOrAdmin(address _address) public view returns (bool) {
+        return isOwner(_address) || isAdmin(_address);
+    }
+
+    function isEpochManager(address _address) public view returns (bool) {
+        return epochManager == _address;
+    }
+
 
     /**
      * @dev Initializes the PowerloomDataMarket contract
@@ -371,7 +356,8 @@ contract PowerloomDataMarket is Ownable {
      * @dev Updates the DAY_SIZE and recalculates epochsInADay
      * @param _daySize New value for DAY_SIZE
      */
-    function updateDaySize(uint256 _daySize) public onlyOwnerOrigin {
+    function updateDaySize(uint256 _daySize, address _sender) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         DAY_SIZE = _daySize;
         epochsInADay = DAY_SIZE / (SOURCE_CHAIN_BLOCK_TIME * EPOCH_SIZE);
     }
@@ -406,14 +392,16 @@ contract PowerloomDataMarket is Ownable {
      * @dev Sets the sequencer ID
      * @param _sequencerId The new sequencer ID
      */
-    function setSequencerId(string memory _sequencerId) public onlyOwnerOrAdmin {
+    function setSequencerId(string memory _sequencerId, address _sender) public onlyProtocolState {
+        require(isOwnerOrAdmin(_sender), "E08");
         sequencerId = _sequencerId;
     }
 
     /**
      * @dev Toggles the rewards status
      */
-    function toggleRewards() public onlyOwnerOrigin {
+    function toggleRewards(address _sender) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         rewardsEnabled = !rewardsEnabled;
     }
 
@@ -422,8 +410,9 @@ contract PowerloomDataMarket is Ownable {
      * @param _dailySnapshotQuota The new daily snapshot quota
      */
     function updateDailySnapshotQuota(
-        uint256 _dailySnapshotQuota
-    ) public onlyOwnerOrigin {
+        uint256 _dailySnapshotQuota, address _sender
+    ) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         dailySnapshotQuota = _dailySnapshotQuota;
     }
 
@@ -432,8 +421,9 @@ contract PowerloomDataMarket is Ownable {
      * @param newRewardPoolSize The new reward pool size
      */
     function updateRewardPoolSize(
-        uint256 newRewardPoolSize
-    ) public onlyOwnerOrigin {
+        uint256 newRewardPoolSize, address _sender
+    ) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         rewardPoolSize = newRewardPoolSize;
     }
 
@@ -441,7 +431,8 @@ contract PowerloomDataMarket is Ownable {
      * @dev Updates the epoch manager address
      * @param _address The new epoch manager address
      */
-    function updateEpochManager(address _address) external onlyOwnerOrigin {
+    function updateEpochManager(address _address, address _sender) external onlyProtocolState {
+        require(isOwner(_sender), "E03");
         epochManager = _address;
     }
 
@@ -472,8 +463,10 @@ contract PowerloomDataMarket is Ownable {
     function updateAddresses(
         Role role,
         address[] calldata _addresses,
-        bool[] calldata _status
-    ) external onlyOwnerOrigin returns (Role ROLE) {
+        bool[] calldata _status,
+        address _sender
+    ) external onlyProtocolState returns (Role ROLE) {
+        require(isOwner(_sender), "E03");
         require(
             _addresses.length == _status.length,
             "E19"
@@ -510,8 +503,10 @@ contract PowerloomDataMarket is Ownable {
      */
     function forceSkipEpoch(
         uint256 begin,
-        uint256 end
-    ) public onlyOwnerOrigin isActive returns (bool, bool) {
+        uint256 end,
+        address _sender
+    ) public isActive onlyProtocolState returns (bool, bool) {
+        require(isOwner(_sender), "E03");
         bool DAY_STARTED = false;
         bool EPOCH_RELEASED = false;
 
@@ -554,8 +549,10 @@ contract PowerloomDataMarket is Ownable {
     function loadSlotSubmissions(
         uint256 slotId,
         uint256 dayId,
-        uint256 snapshotCount
-    ) public onlyOwnerOrigin {
+        uint256 snapshotCount,
+        address _sender
+    ) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         slotSubmissionCount[slotId][dayId] = snapshotCount;
     }
 
@@ -563,7 +560,8 @@ contract PowerloomDataMarket is Ownable {
      * @dev Loads the current day counter
      * @param _dayCounter The new day counter value
      */
-    function loadCurrentDay(uint256 _dayCounter) public onlyOwnerOrigin {
+    function loadCurrentDay(uint256 _dayCounter, address _sender) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         dayCounter = _dayCounter;
     }
 
@@ -572,8 +570,10 @@ contract PowerloomDataMarket is Ownable {
      * @param _minAttestationsForConsensus The new minimum value
      */
     function updateMinAttestationsForConsensus(
-        uint256 _minAttestationsForConsensus
-    ) public onlyOwnerOrigin {
+        uint256 _minAttestationsForConsensus,
+        address _sender
+    ) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         minAttestationsForConsensus = _minAttestationsForConsensus;
     }
 
@@ -582,8 +582,10 @@ contract PowerloomDataMarket is Ownable {
      * @param newbatchSubmissionWindow The new batch submission window
      */
     function updateBatchSubmissionWindow(
-        uint256 newbatchSubmissionWindow
-    ) public onlyOwnerOrigin {
+        uint256 newbatchSubmissionWindow,
+        address _sender
+    ) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         require(newbatchSubmissionWindow > snapshotSubmissionWindow, "E41");
         batchSubmissionWindow = newbatchSubmissionWindow;
     }
@@ -593,8 +595,10 @@ contract PowerloomDataMarket is Ownable {
      * @param newsnapshotSubmissionWindow The new snapshot submission window
      */
     function updateSnapshotSubmissionWindow(
-        uint256 newsnapshotSubmissionWindow
-    ) public onlyOwnerOrigin {
+        uint256 newsnapshotSubmissionWindow,
+        address _sender
+    ) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         snapshotSubmissionWindow = newsnapshotSubmissionWindow;
     }
 
@@ -603,8 +607,10 @@ contract PowerloomDataMarket is Ownable {
      * @param newattestationSubmissionWindow The new attestation submission window
      */
     function updateAttestationSubmissionWindow(
-        uint256 newattestationSubmissionWindow
-    ) public onlyOwnerOrigin {
+        uint256 newattestationSubmissionWindow,
+        address _sender
+    ) public onlyProtocolState {
+        require(isOwner(_sender), "E03");
         require(newattestationSubmissionWindow > batchSubmissionWindow && batchSubmissionWindow > 0, "E42");
         attestationSubmissionWindow = newattestationSubmissionWindow;
     }
@@ -618,8 +624,10 @@ contract PowerloomDataMarket is Ownable {
      */
     function releaseEpoch(
         uint256 begin,
-        uint256 end
-    ) public onlyEpochManager isActive returns (bool, bool) {
+        uint256 end,
+        address _sender
+    ) public isActive onlyProtocolState returns (bool, bool) {
+        require(isEpochManager(_sender), "E05");
         bool DAY_STARTED = false;
         bool EPOCH_RELEASED = false;
         require(end >= begin, "E20");
@@ -781,8 +789,10 @@ contract PowerloomDataMarket is Ownable {
         uint256 epochId,
         string[] memory projectIds,
         string[] memory snapshotCids,
-        bytes32 finalizedCidsRootHash
-    ) public onlySequencer returns (bool SNAPSHOT_BATCH_SUBMITTED, bool DELAYED_BATCH_SUBMITTED) {
+        bytes32 finalizedCidsRootHash,
+        address _sender
+    ) public onlyProtocolState returns (bool SNAPSHOT_BATCH_SUBMITTED, bool DELAYED_BATCH_SUBMITTED) {
+        require(isSequencer(_sender), "E04");
         if (
             block.number <=
             epochInfo[epochId].blocknumber + batchSubmissionWindow
@@ -862,7 +872,8 @@ contract PowerloomDataMarket is Ownable {
      * @dev Marks batch submissions as completed for a given epoch
      * @param epochId The epoch ID to mark as completed
      */
-    function endBatchSubmissions(uint256 epochId) external onlySequencer {
+    function endBatchSubmissions(uint256 epochId, address _sender) external {
+        require(isSequencer(_sender), "E04");
         require(!epochIdToBatchSubmissionsCompleted[epochId], "E39");
         epochIdToBatchSubmissionsCompleted[epochId] = true;
         emit BatchSubmissionsCompleted(epochId, block.timestamp);
@@ -878,9 +889,10 @@ contract PowerloomDataMarket is Ownable {
     function submitBatchAttestation(
         string memory batchCid,
         uint256 epochId,
-        bytes32 finalizedCidsRootHash
-    ) public onlyValidator 
-    returns (bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED){
+        bytes32 finalizedCidsRootHash,
+        address _sender
+    ) public onlyProtocolState returns (bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED){
+        require(isValidator(_sender), "E01");
         bool found = false;
         for (uint i = 0; i < epochIdToBatchCids[epochId].length; i++) {
             string memory curBatchCid = epochIdToBatchCids[epochId][i];
@@ -1015,10 +1027,12 @@ contract PowerloomDataMarket is Ownable {
      */
     function forceCompleteConsensusAttestations(
         string memory batchCid,
-        uint256 epochId
-    ) public onlyOwnerOrigin returns (
+        uint256 epochId,
+        address _sender
+    ) public onlyProtocolState returns (
         bool TRIGGER_BATCH_RESUBMISSION
     ) {
+        require(isOwner(_sender), "E03");
         if (checkDynamicConsensusAttestations(batchCid, epochId)) {
             TRIGGER_BATCH_RESUBMISSION = finalizeSnapshotBatch(batchCid, epochId);
         }
@@ -1046,14 +1060,16 @@ contract PowerloomDataMarket is Ownable {
         return false;
     }
 
-    function updateEligibleNodesForDay(uint256 day, uint256 eligibleNodes) public onlySequencer {
+    function updateEligibleNodesForDay(uint256 day, uint256 eligibleNodes, address _sender) public onlyProtocolState {
+        require(isSequencer(_sender), "E04");
         if (eligibleNodesForDay[day] != 0) {
             return;
         }
         eligibleNodesForDay[day] = eligibleNodes;
     }
 
-    function updateRewards(uint256 slotId, uint256 submissions, uint256 day) public onlySequencer returns (bool) {
+    function updateRewards(uint256 slotId, uint256 submissions, uint256 day, address _sender) public onlyProtocolState returns (bool) {
+        require(isSequencer(_sender), "E04");
         require(day == dayCounter || day == dayCounter - 1, "E38");
         ISnapshotterState snapshotterState = protocolState
             .snapshotterState();
