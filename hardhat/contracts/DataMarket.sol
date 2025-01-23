@@ -482,21 +482,23 @@ contract PowerloomDataMarket is Ownable {
         EnumerableSet.AddressSet storage set = _getAddressSet(role);
 
         for (uint256 i = 0; i < _addresses.length; i++) {
+            bool changed = false;
             if (_status[i]) {
-                set.add(_addresses[i]);
+                changed = set.add(_addresses[i]);
             } else {
-                set.remove(_addresses[i]);
+                changed = set.remove(_addresses[i]);
             }
-
-            if (role == Role.VALIDATOR) {
-                ROLE = Role.VALIDATOR;
-                emit ValidatorsUpdated(_addresses[i], _status[i]);
-            } else if (role == Role.SEQUENCER) {
-                ROLE = Role.SEQUENCER;
-                emit SequencersUpdated(_addresses[i], _status[i]);
-            } else {
-                ROLE = Role.ADMIN;
-                emit AdminsUpdated(_addresses[i], _status[i]);
+            if (changed) {
+                if (role == Role.VALIDATOR) {
+                    ROLE = Role.VALIDATOR;
+                    emit ValidatorsUpdated(_addresses[i], _status[i]);
+                } else if (role == Role.SEQUENCER) {
+                    ROLE = Role.SEQUENCER;
+                    emit SequencersUpdated(_addresses[i], _status[i]);
+                } else {
+                    ROLE = Role.ADMIN;
+                    emit AdminsUpdated(_addresses[i], _status[i]);
+                }
             }
         }
     }
