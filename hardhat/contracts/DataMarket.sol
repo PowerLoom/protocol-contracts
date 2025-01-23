@@ -178,6 +178,8 @@ contract PowerloomDataMarket is Ownable {
     mapping(uint256 slotId => uint256 slotRewardPoints) public slotRewardPoints;
     mapping(uint256 dayId => uint256 eligibleNodes) public eligibleNodesForDay;
 
+    mapping(address validatorAddress => mapping(uint256 epochId => mapping(string batchCid => bool))) public validatorAttestationsReceived;
+
     // Events
     event DayStartedEvent(uint256 dayId, uint256 timestamp);
     event DailyTaskCompletedEvent(
@@ -876,6 +878,7 @@ contract PowerloomDataMarket is Ownable {
             }
         }
         require(found == true, "E26");
+        require(!validatorAttestationsReceived[tx.origin][epochId][batchCid], "E40");
         if (
             block.number <=
             epochInfo[epochId].blocknumber + attestationSubmissionWindow
@@ -910,6 +913,7 @@ contract PowerloomDataMarket is Ownable {
                 block.timestamp,
                 tx.origin
             );
+            validatorAttestationsReceived[tx.origin][epochId][batchCid] = true;
         } else {
             attestationsReceived[batchCid][tx.origin] = true;
             emit DelayedAttestationSubmitted(

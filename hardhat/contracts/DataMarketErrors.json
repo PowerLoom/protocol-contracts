@@ -37,6 +37,7 @@
     "E36": "Epoch not continuous!",
     "E37": "DataMarket fallback not enabled",
     "E38": "Cannot update rewards for past or future days",
-    "E39": "Batch submissions completed for this epoch"
+    "E39": "Batch submissions completed for this epoch",
+    "E40": "Attestation already received from this validator for this epoch and batch"
   }
   
