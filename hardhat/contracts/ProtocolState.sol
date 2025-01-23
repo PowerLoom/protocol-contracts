@@ -51,8 +51,6 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
     mapping(uint256 => address) public dataMarketIdToAddress;
     mapping(address => DataMarketInfo) public dataMarkets; 
     mapping(address => UserInfo) public userInfo;
-    mapping(uint256 dayId => mapping(address dataMarketAddress => mapping(uint256 slotId => bool rewardsDistributed))) public slotRewardsDistributedStatus;
-    mapping (uint256 dayId => mapping(address dataMarketAddress => uint256 slotsRemainingToBeRewarded)) public slotsRemainingToBeRewardedCount;
 
     // Events
     event DayStartedEvent(address indexed dataMarketAddress, uint256 dayId, uint256 timestamp);
@@ -738,19 +736,10 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
         uint256 eligibleNodes
     ) external {
         if (eligibleNodes != 0) {
-            bool updated = dataMarket.updateEligibleNodesForDay(day, eligibleNodes, msg.sender);
-            if (updated) {
-                slotsRemainingToBeRewardedCount[day][address(dataMarket)] = eligibleNodes;
-            }
-            if (slotsRemainingToBeRewardedCount[day][address(dataMarket)] == 0) {
-                return;
-            }
+            dataMarket.updateEligibleNodesForDay(day, eligibleNodes, msg.sender);
         }
         // Iterate through all provided slots
         for (uint i = 0; i < slotIds.length; i++) {
-            if (slotRewardsDistributedStatus[day][address(dataMarket)][slotIds[i]]) {
-                continue;
-            }
             bool status = dataMarket.updateRewards(slotIds[i], submissionsList[i], day, msg.sender);
             if(status){
                 address slotOwner = snapshotterState.nodeIdToOwner(slotIds[i]);
@@ -762,8 +751,6 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
                     user.totalRewards += rewards;
                     user.lastUpdated = block.timestamp;
                     slotRewards[slotIds[i]] += rewards;
-                    slotsRemainingToBeRewardedCount[day][address(dataMarket)]--;
-                    slotRewardsDistributedStatus[day][address(dataMarket)][slotIds[i]] = true;
                     emit RewardsDistributedEvent(address(dataMarket), snapshotterAddress, slotIds[i], day, rewards, block.timestamp);
                 }
             }

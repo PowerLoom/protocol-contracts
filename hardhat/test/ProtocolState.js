@@ -1431,19 +1431,22 @@ describe("PowerloomProtocolState", function () {
             await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [1, 2], [5, 5], 1, eligibleNodes).then(async () => {
                 const eligibleNodesForDay = await dataMarket1.eligibleNodesForDay(1);
                 expect(eligibleNodesForDay).to.equal(eligibleNodes);
-                expect(await proxyContract.slotsRemainingToBeRewardedCount(1, dataMarket1.target)).to.equal(eligibleNodes - 2);
+                expect(await dataMarket1.slotsRemainingToBeRewardedCount(1)).to.equal(eligibleNodes - 2);
             });
             // altering eligible counts to a higher number should not update the eligible nodes for day
             alteredEligibleNodesCount = 6;
             await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [3, 4], [5, 5], 1, alteredEligibleNodesCount).then(async () => {
                 // once we set the initial eligible nodes count as 4, this update does not change the slots remaining to be rewarded
-                expect(await proxyContract.slotsRemainingToBeRewardedCount(1, dataMarket1.target)).to.equal(0);
+                expect(await dataMarket1.slotsRemainingToBeRewardedCount(1)).to.equal(0);
             });
+            // any further updates should not update the eligible nodes for day and revert with E45
+            await expect(proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [5, 6], [5, 5], 1, alteredEligibleNodesCount)).to.be.revertedWith("E45");
             // test that rewards are not distributed for slots 5 and 6 because they are past the eligible nodes count
-            await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [5, 6], [5, 5], 1, alteredEligibleNodesCount).then(async () => {
-                expect(await proxyContract.slotsRemainingToBeRewardedCount(1, dataMarket1.target)).to.equal(0);
-                expect(await proxyContract.getSlotRewards(5)).to.equal(0);
-                expect(await proxyContract.getSlotRewards(6)).to.equal(0);
+            await proxyContract.slotRewardPoints(dataMarket1.target, 5).then(async (rewards) => {
+                expect(rewards).to.equal(0);
+            });
+            await proxyContract.slotRewardPoints(dataMarket1.target, 6).then(async (rewards) => {
+                expect(rewards).to.equal(0);
             });
 
         });
