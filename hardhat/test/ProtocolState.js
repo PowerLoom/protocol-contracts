@@ -185,7 +185,7 @@ describe("PowerloomProtocolState", function () {
             )).to.emit(snapshotterState, "ConfigurationUpdated")
               .withArgs("LegacyNodesConfig", legacyConfig.legacyNodeCount);
 
-            await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 4, true))
+            await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 6, true))
                 .to.emit(snapshotterState, "NodeMinted")
                 .withArgs(snapshotter1.address, 1)
                 .to.emit(snapshotterState, "NodeMinted")
@@ -1319,17 +1319,35 @@ describe("PowerloomProtocolState", function () {
                 legacyConfig.legacyNodeNonKycedCooldown
             )).to.emit(snapshotterState, "ConfigurationUpdated")
               .withArgs("LegacyNodesConfig", legacyConfig.legacyNodeCount);
-            await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 2, true))
+            await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 6, true))
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 1)
                 .to.emit(snapshotterState, "NodeMinted")
                 .withArgs(snapshotter1.address, 2)
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 3)
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 4)
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 5)
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 6);
             await expect(snapshotterState.assignSnapshotterToNodeBulkAdmin(
-                [1, 2], 
-                [otherAccount1.address, otherAccount2.address]
+                [1, 2, 3, 4, 5, 6], 
+                [otherAccount1.address, otherAccount2.address, otherAccount1.address, otherAccount2.address, otherAccount1.address, otherAccount2.address]
             )).to.emit(snapshotterState, "allSnapshottersUpdated")
               .withArgs(otherAccount1.address, true)
               .to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount2.address, true)
+              .to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount1.address, true)
+              .to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount2.address, true)
+              .to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount1.address, true)
+              .to.emit(snapshotterState, "allSnapshottersUpdated")
               .withArgs(otherAccount2.address, true);
-    
+            
             await proxyContract.updateAddresses(dataMarket1.target, 1, [sequencer1.address], [true]); // set sequencer1 as a sequencer
             await proxyContract.updateAddresses(dataMarket2.target, 1, [sequencer2.address], [true]); // set sequencer2 as a sequencer
 
@@ -1399,6 +1417,35 @@ describe("PowerloomProtocolState", function () {
             // Check eligible nodes for the day
             expect(await dataMarket1.eligibleNodesForDay(1)).to.equal(2);
             expect(await dataMarket2.eligibleNodesForDay(1)).to.equal(1);
+        });
+
+        it("Should update eligible nodes for day atomically", async function () {
+            let eligibleNodes = 4;
+            const rewardBasePoints = 100;
+            const snapshotQuota = 4;
+            
+            await proxyContract.updateRewardPoolSize(dataMarket1.target, rewardBasePoints);
+            await proxyContract.updateDailySnapshotQuota(dataMarket1.target, snapshotQuota);
+            // the very first call to updateRewards should update the eligible nodes for day
+            // any other further updates should not update the eligible nodes for day
+            await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [1, 2], [5, 5], 1, eligibleNodes).then(async () => {
+                const eligibleNodesForDay = await dataMarket1.eligibleNodesForDay(1);
+                expect(eligibleNodesForDay).to.equal(eligibleNodes);
+                expect(await proxyContract.slotsRemainingToBeRewardedCount(1, dataMarket1.target)).to.equal(eligibleNodes - 2);
+            });
+            // altering eligible counts to a higher number should not update the eligible nodes for day
+            alteredEligibleNodesCount = 6;
+            await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [3, 4], [5, 5], 1, alteredEligibleNodesCount).then(async () => {
+                // once we set the initial eligible nodes count as 4, this update does not change the slots remaining to be rewarded
+                expect(await proxyContract.slotsRemainingToBeRewardedCount(1, dataMarket1.target)).to.equal(0);
+            });
+            // test that rewards are not distributed for slots 5 and 6 because they are past the eligible nodes count
+            await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [5, 6], [5, 5], 1, alteredEligibleNodesCount).then(async () => {
+                expect(await proxyContract.slotsRemainingToBeRewardedCount(1, dataMarket1.target)).to.equal(0);
+                expect(await proxyContract.getSlotRewards(5)).to.equal(0);
+                expect(await proxyContract.getSlotRewards(6)).to.equal(0);
+            });
+
         });
 
         it("Should store rewards successfully", async function () {
@@ -1486,8 +1533,8 @@ describe("PowerloomProtocolState", function () {
             expect(await dataMarket1.eligibleNodesForDay(1)).to.equal(2);
             expect(await dataMarket1.rewardPoolSize()).to.equal(rewardPoolSize);
 
-            const totalNodesHeld = await snapshotterState.getUserOwnedNodeIds(snapshotter1.address);
-            const totalRewards = BigInt(totalNodesHeld.length) * BigInt(expectedRewardPoints);
+            const totalNodesHeldBySnapshotter1AndEligibleAsWell = 2;  // slot IDs 1 and 2 are both minted to snapshotter1
+            const totalRewards = BigInt(totalNodesHeldBySnapshotter1AndEligibleAsWell) * BigInt(expectedRewardPoints);
 
             const contractBalanceBefore = await ethers.provider.getBalance(proxyContract.target);
             // claim rewards to node holder of slot 1
@@ -1550,8 +1597,8 @@ describe("PowerloomProtocolState", function () {
             .withArgs(dataMarket2.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp + 2)
             .withArgs(dataMarket2.target, otherAccount2.address, 2, 1, expectedRewardPoints, blockTimestamp + 2);
 
-            const totalNodesHeld = await snapshotterState.getUserOwnedNodeIds(snapshotter1.address);
-            const totalRewards = BigInt(totalNodesHeld.length) * BigInt(expectedRewardPoints);
+            const totalNodesHeldBySnapshotter1AndEligibleAsWell = 2;  // slot IDs 1 and 2 are both minted to snapshotter1
+            const totalRewards = BigInt(totalNodesHeldBySnapshotter1AndEligibleAsWell) * BigInt(expectedRewardPoints);
             const totalRewardsForBothMarkets = totalRewards * 2n;
 
             const contractBalanceBefore = await ethers.provider.getBalance(proxyContract.target);

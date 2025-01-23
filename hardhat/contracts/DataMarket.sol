@@ -1055,17 +1055,19 @@ contract PowerloomDataMarket is Ownable {
         return false;
     }
 
-    function updateEligibleNodesForDay(uint256 day, uint256 eligibleNodes, address _sender) public onlyProtocolState {
+    function updateEligibleNodesForDay(uint256 day, uint256 eligibleNodes, address _sender) public onlyProtocolState returns (bool) {
         require(isSequencer(_sender), "E04");
         if (eligibleNodesForDay[day] != 0) {
-            return;
+            return false;
         }
         eligibleNodesForDay[day] = eligibleNodes;
+        return true;
     }
 
     function updateRewards(uint256 slotId, uint256 submissions, uint256 day, address _sender) public onlyProtocolState returns (bool) {
         require(isSequencer(_sender), "E04");
         require(day == dayCounter || day == dayCounter - 1, "E38");
+
         ISnapshotterState snapshotterState = protocolState
             .snapshotterState();
 
