@@ -128,7 +128,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
     event SnapshotterStateUpdated(address indexed newSnapshotterState);
     event allSnapshottersUpdated(address snapshotterAddress, bool allowed);
     event AdminsUpdated(address adminAddress, bool allowed);
-
+    event SnapshotterAddressChanged(uint256 nodeId, address oldSnapshotter, address newSnapshotter);
     // receive ETH
     receive() external payable {}
 
@@ -498,6 +498,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
         // check node is not burned
         require(nodeInfo[nodeId].burnedOn == 0, "Node is burned");
         NodeInfo storage node = nodeInfo[nodeId];
+        require(snapshotterAddress != node.snapshotterAddress, "Snapshotter address already assigned");
         // If the node already has a snapshotter address assigned, remove the previous snapshotter address
         if (node.snapshotterAddress != address(0)) {
             snapshotterToNodeIds[node.snapshotterAddress].remove(nodeId);
@@ -519,7 +520,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
         node.snapshotterAddress = snapshotterAddress;
         node.lastUpdated = block.timestamp;
         snapshotterToNodeIds[snapshotterAddress].add(nodeId);
-
+        emit SnapshotterAddressChanged(nodeId, node.snapshotterAddress, snapshotterAddress);
         if (!allSnapshotters[snapshotterAddress]) {
             allSnapshotters[snapshotterAddress] = true;
             emit allSnapshottersUpdated(snapshotterAddress, true);
