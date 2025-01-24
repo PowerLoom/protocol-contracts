@@ -48,7 +48,7 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
     mapping(uint256 => uint256) public slotRewards;
 
     uint256 public dataMarketCount;
-    mapping(uint256 => address) public dataMarketIdToAddress;
+    mapping(uint256 dataMarketId => address dataMarketAddress) public dataMarketIdToAddress;
     mapping(address => DataMarketInfo) public dataMarkets; 
     mapping(address => UserInfo) public userInfo;
 
