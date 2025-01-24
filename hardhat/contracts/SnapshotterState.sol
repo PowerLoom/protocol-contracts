@@ -498,7 +498,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
         // check node is not burned
         require(nodeInfo[nodeId].burnedOn == 0, "Node is burned");
         NodeInfo storage node = nodeInfo[nodeId];
-        require(snapshotterAddress != node.snapshotterAddress, "Snapshotter address already assigned");
+        require(snapshotterAddress != node.snapshotterAddress, "Same address already assigned");
         // If the node already has a snapshotter address assigned, remove the previous snapshotter address
         if (node.snapshotterAddress != address(0)) {
             snapshotterToNodeIds[node.snapshotterAddress].remove(nodeId);
