@@ -46,4 +46,13 @@ describe("DataMarket Deployment", function () {
     const dataMarketCreatedEventSig = "DataMarketCreated(address indexed ownerAddress, uint8 epochSize, uint256 sourceChainId, uint256 sourceChainBlockTime, bool useBlockNumberAsEpochId, address protocolState, address dataMarketAddress)";
     await expect(proxyContract.createDataMarket(deployer.address, 1, 137, 2, true)).to.emit(dataMarketFactory, dataMarketCreatedEventSig);
   });
+    
+  it("Should deploy an implementation contract on creation", async function () {
+    const dataMarketContract = await ethers.getContractFactory("PowerloomDataMarket");
+    const dataMarket = await dataMarketContract.deploy();
+    await dataMarket.waitForDeployment();
+    expect(dataMarket.target).to.not.equal(ethers.ZeroAddress);
+  });
+
+  
 });
