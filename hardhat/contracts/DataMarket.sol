@@ -3,7 +3,9 @@
 
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
@@ -62,7 +64,7 @@ interface ISnapshotterState {
  * @title PowerloomDataMarket
  * @dev Main contract for managing the Powerloom data market
  */
-contract PowerloomDataMarket is Ownable {
+contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /**
@@ -281,44 +283,54 @@ contract PowerloomDataMarket is Ownable {
         _;
     }
 
-
-    /**
-     * @dev Constructor for the PowerloomDataMarket contract
-     * @param ownerAddress Address of the contract owner
-     * @param epochSize Size of each epoch
-     * @param sourceChainId ID of the source chain
-     * @param sourceChainBlockTime Block time of the source chain
-     * @param useBlockNumberAsEpochId Whether to use block number as epoch ID
-     * @param _protocolStateAddress Address of the ProtocolState contract
-     */
-    constructor(
-        address ownerAddress,
-        uint8 epochSize,
-        uint256 sourceChainId,
-        uint256 sourceChainBlockTime,
-        bool useBlockNumberAsEpochId,
-        address _protocolStateAddress
-    ) Ownable(ownerAddress) {
-        require(ownerAddress != address(0), "E45");
-        EPOCH_SIZE = epochSize;
-        SOURCE_CHAIN_ID = sourceChainId;
-        // SOURCE CHAIN BLOCK TIME 10000 = 1 second
-        SOURCE_CHAIN_BLOCK_TIME = sourceChainBlockTime;
-        if (useBlockNumberAsEpochId) {
-            require(
-                epochSize == 1,
-                "E10"
-            );
-        }
-        USE_BLOCK_NUMBER_AS_EPOCH_ID = useBlockNumberAsEpochId;
-        deploymentBlockNumber = block.number;
-        // 24 should be divided by slotsPerDay
-        epochsInADay = DAY_SIZE / (SOURCE_CHAIN_BLOCK_TIME * epochSize);
-        protocolState = IPowerloomProtocolState(_protocolStateAddress);
-        isInitialized = true;
-
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
+    /**
+     * @dev Initializes the contract
+     * @param initialOwner The address of the initial owner
+     * @param _epochSize Size of each epoch
+     * @param _sourceChainId ID of the source chain
+     * @param _sourceChainBlockTime Block time of the source chain
+     * @param _useBlockNumberAsEpochId Whether to use block number as epoch ID
+     * @param _protocolStateAddress Address of the protocol state contract
+     */
+    function initialize(
+        address initialOwner,
+        uint8 _epochSize,
+        uint256 _sourceChainId,
+        uint256 _sourceChainBlockTime,
+        bool _useBlockNumberAsEpochId,
+        address _protocolStateAddress
+    ) initializer public {
+        __Ownable_init(initialOwner);
+        __UUPSUpgradeable_init();
+        
+        require(initialOwner != address(0), "E45");
+        EPOCH_SIZE = _epochSize;
+        SOURCE_CHAIN_ID = _sourceChainId;
+        SOURCE_CHAIN_BLOCK_TIME = _sourceChainBlockTime;
+        if (_useBlockNumberAsEpochId) {
+            require(_epochSize == 1, "E10");
+        }
+        USE_BLOCK_NUMBER_AS_EPOCH_ID = _useBlockNumberAsEpochId;
+        deploymentBlockNumber = block.number;
+        epochsInADay = DAY_SIZE / (SOURCE_CHAIN_BLOCK_TIME * _epochSize);
+        protocolState = IPowerloomProtocolState(_protocolStateAddress);
+        isInitialized = true;
+    }
+
+    /**
+     * @dev Function to authorize an upgrade to a new implementation
+     * @param newImplementation Address of the new implementation
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        onlyOwner
+        override
+    {}
 
     function isValidator(address validatorAddress) public view returns (bool) {
         return validatorSet.contains(validatorAddress);
