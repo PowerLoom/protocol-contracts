@@ -136,24 +136,24 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
     string public sequencerId;
     IPowerloomProtocolState public protocolState;
     Epoch public currentEpoch;
-    uint256 public rewardPoolSize = 1_000_000e18;
-    uint256 public dailySnapshotQuota = 50;
-    uint256 public dayCounter = 1;
+    uint256 public rewardPoolSize;
+    uint256 public dailySnapshotQuota;
+    uint256 public dayCounter;
     uint256 public epochsInADay;
-    uint256 public epochIdCounter = 0;
+    uint256 public epochIdCounter;
     address public epochManager;
-    bool public isInitialized = false;
+    bool public isInitialized;
     uint8 public EPOCH_SIZE; // Number of Blocks in each Epoch
     uint256 public SOURCE_CHAIN_ID;
     uint256 public SOURCE_CHAIN_BLOCK_TIME; // Block time in seconds * 1e4 (to allow decimals)
     uint256 public deploymentBlockNumber;
     bool public USE_BLOCK_NUMBER_AS_EPOCH_ID;
-    uint256 public DAY_SIZE = 864000000; // 24 hours in blocks
-    bool public rewardsEnabled = true;
-    uint256 public snapshotSubmissionWindow = 1; // Number of blocks to wait before finalizing epoch
-    uint256 public batchSubmissionWindow = 1; // Number of blocks to wait before finalizing batch
-    uint256 public attestationSubmissionWindow = 1; // Number of blocks to wait for attestation acceptance
-    uint256 public minAttestationsForConsensus = 2; // Minimum number of attestations for consensus
+    uint256 public DAY_SIZE; // 24 hours in blocks
+    bool public rewardsEnabled;
+    uint256 public snapshotSubmissionWindow; // Number of blocks to wait before finalizing epoch
+    uint256 public batchSubmissionWindow; // Number of blocks to wait before finalizing batch
+    uint256 public attestationSubmissionWindow; // Number of blocks to wait for attestation acceptance
+    uint256 public minAttestationsForConsensus; // Minimum number of attestations for consensus
 
     // Private state variables
     EnumerableSet.AddressSet private validatorSet;
@@ -309,6 +309,21 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
         __UUPSUpgradeable_init();
         
         require(initialOwner != address(0), "E45");
+        
+        // Initialize state variables that were previously initialized at declaration
+        rewardPoolSize = 1_000_000e18;
+        dailySnapshotQuota = 50;
+        dayCounter = 1;
+        epochIdCounter = 0;
+        isInitialized = false;
+        DAY_SIZE = 864000000; // 24 hours in blocks
+        rewardsEnabled = true;
+        snapshotSubmissionWindow = 1;
+        batchSubmissionWindow = 1;
+        attestationSubmissionWindow = 1;
+        minAttestationsForConsensus = 2;
+        
+        // Initialize parameters from constructor
         EPOCH_SIZE = _epochSize;
         SOURCE_CHAIN_ID = _sourceChainId;
         SOURCE_CHAIN_BLOCK_TIME = _sourceChainBlockTime;
@@ -317,7 +332,11 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
         }
         USE_BLOCK_NUMBER_AS_EPOCH_ID = _useBlockNumberAsEpochId;
         deploymentBlockNumber = block.number;
-        epochsInADay = DAY_SIZE / (SOURCE_CHAIN_BLOCK_TIME * _epochSize);
+        
+        require(_sourceChainBlockTime > 0 && _epochSize > 0, "Invalid time parameters");
+        epochsInADay = (DAY_SIZE) / (_sourceChainBlockTime * _epochSize);
+        require(epochsInADay > 0, "Invalid epochs in day calculation");
+        
         protocolState = IPowerloomProtocolState(_protocolStateAddress);
         isInitialized = true;
     }
