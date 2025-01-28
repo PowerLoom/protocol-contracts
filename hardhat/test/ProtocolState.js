@@ -1837,7 +1837,7 @@ describe("PowerloomProtocolState", function () {
             // check for total validators count to be 1
             expect(await proxyContract.getTotalValidatorsCount(dataMarket1.target)).to.be.equal(1);
 
-            // set otherAccount1 as a sequencer
+            // set otherAccount2 as a sequencer
             const role1 = 1
             await expect(proxyContract.updateAddresses(
                 dataMarket1.target,
