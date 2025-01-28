@@ -1827,32 +1827,38 @@ describe("PowerloomProtocolState", function () {
         it("Should update data market roles", async function () {
             // set otherAccount1 as a validator
             const role = 0
-            await proxyContract.updateAddresses(
+            await expect(proxyContract.updateAddresses(
                 dataMarket1.target,
                 role,
                 [otherAccount1.address], 
                 [true],
-            );
+            )).to.emit(proxyContract, "ValidatorsUpdated")
+              .withArgs(dataMarket1.target, otherAccount1.address, true);
+            // check for total validators count to be 1
             expect(await proxyContract.getTotalValidatorsCount(dataMarket1.target)).to.be.equal(1);
 
             // set otherAccount1 as a sequencer
             const role1 = 1
-            await proxyContract.updateAddresses(
+            await expect(proxyContract.updateAddresses(
                 dataMarket1.target,
                 role1,
-                [otherAccount1.address], 
+                [otherAccount2.address], 
                 [true],
-            );
-            expect(await proxyContract.getTotalSequencersCount(dataMarket1.target)).to.be.equal(1);
+            )).to.emit(proxyContract, "SequencersUpdated")
+              .withArgs(dataMarket1.target, otherAccount2.address, true);
+            // check for total sequencers count to be 2
+            expect(await proxyContract.getTotalSequencersCount(dataMarket1.target)).to.be.equal(2);
 
             // set otherAccount1 as an admin
             const role2 = 2
-            await proxyContract.updateAddresses(
+            await expect(proxyContract.updateAddresses(
                 dataMarket1.target,
                 role2,
                 [otherAccount1.address], 
                 [true],
-            );
+            )).to.emit(proxyContract, "AdminsUpdated")
+              .withArgs(dataMarket1.target, otherAccount1.address, true);
+            // check for total admins count to be 1
             expect((await dataMarket1.getAdmins()).length).to.be.equal(1);
 
             // set otherAccount1 as a non-valid role - will revert silently due to solidity enum checking
