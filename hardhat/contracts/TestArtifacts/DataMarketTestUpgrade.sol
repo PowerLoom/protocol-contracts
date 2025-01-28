@@ -64,7 +64,7 @@ interface ISnapshotterState {
  * @title PowerloomDataMarket
  * @dev Main contract for managing the Powerloom data market
  */
-contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+contract DataMarketTestUpgrade is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /**
@@ -1141,6 +1141,11 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
             return true;
         }
         return false;
+    }
+
+    function newFunctionality() public pure returns (string memory) {
+        string memory newFunctionalityString = "This is a new functionality";
+        return newFunctionalityString;
     }
 
 }

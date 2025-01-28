@@ -159,6 +159,86 @@ describe("PowerloomProtocolState", function () {
         });
     });
 
+    describe("Data Market Factory", function () {
+        it("Should set the right protocol state proxy address", async function () {
+            expect(await dataMarket1.protocolState()).to.equal(proxyContract.target);
+        });
+
+        it("Should create a new data market and verify the initial state", async function () {
+            // Test parameters
+            const testParams = {
+                ownerAddress: owner.address,
+                epochSize: 10,
+                sourceChainId: 137,
+                sourceChainBlockTime: 20000,
+                useBlockNumberAsEpochId: false
+            };
+
+            // Create data market
+            const dataMarketTx = await proxyContract.createDataMarket(
+                testParams.ownerAddress,
+                testParams.epochSize,
+                testParams.sourceChainId,
+                testParams.sourceChainBlockTime,
+                testParams.useBlockNumberAsEpochId
+            );
+            const receipt = await dataMarketTx.wait();
+            expect(receipt.status).to.equal(1);
+
+            // Get the data market address from events
+            const filter = dataMarketFactory.filters.DataMarketCreated();
+            const logs = await dataMarketFactory.queryFilter(filter, receipt.blockNumber, receipt.blockNumber);
+            const dataMarketAddress = logs[0].args.dataMarketAddress;
+
+            // Create contract instance
+            const dataMarketContract = await ethers.getContractFactory("PowerloomDataMarket");
+            const dataMarket = dataMarketContract.attach(dataMarketAddress);
+
+            // Verify constructor arguments were set correctly
+            expect(await dataMarket.owner()).to.equal(testParams.ownerAddress);
+            expect(await dataMarket.EPOCH_SIZE()).to.equal(testParams.epochSize);
+            expect(await dataMarket.SOURCE_CHAIN_ID()).to.equal(testParams.sourceChainId);
+            expect(await dataMarket.SOURCE_CHAIN_BLOCK_TIME()).to.equal(testParams.sourceChainBlockTime);
+            expect(await dataMarket.USE_BLOCK_NUMBER_AS_EPOCH_ID()).to.equal(testParams.useBlockNumberAsEpochId);
+            expect(await dataMarket.protocolState()).to.equal(proxyContract.target);
+
+            // Verify initialized state variables
+            expect(await dataMarket.rewardPoolSize()).to.equal(ethers.parseEther("1000000"));
+            expect(await dataMarket.dailySnapshotQuota()).to.equal(50);
+            expect(await dataMarket.dayCounter()).to.equal(1);
+            expect(await dataMarket.epochIdCounter()).to.equal(0);
+            expect(await dataMarket.isInitialized()).to.equal(true);
+            expect(await dataMarket.DAY_SIZE()).to.equal(864000000);
+            expect(await dataMarket.rewardsEnabled()).to.equal(true);
+            expect(await dataMarket.snapshotSubmissionWindow()).to.equal(1);
+            expect(await dataMarket.batchSubmissionWindow()).to.equal(1);
+            expect(await dataMarket.attestationSubmissionWindow()).to.equal(1);
+            expect(await dataMarket.minAttestationsForConsensus()).to.equal(2);
+
+            // Verify epochs in a day calculation
+            const expectedEpochsInADay = BigInt(864000000) / (BigInt(testParams.sourceChainBlockTime) * BigInt(testParams.epochSize));
+            expect(await dataMarket.epochsInADay()).to.equal(expectedEpochsInADay);
+
+            // Verify data market is enabled in protocol state
+            expect(await proxyContract.dataMarketEnabled(dataMarketAddress)).to.equal(true);
+
+            // Verify data market count and mapping
+            expect(await proxyContract.dataMarketCount()).to.equal(3); // Assuming this is the third data market created
+            expect(await proxyContract.dataMarketIdToAddress(3)).to.equal(dataMarketAddress);
+
+            // Verify data market info in protocol state
+            const dataMarketInfo = await proxyContract.dataMarkets(dataMarketAddress);
+            expect(dataMarketInfo.ownerAddress).to.equal(testParams.ownerAddress);
+            expect(dataMarketInfo.epochSize).to.equal(testParams.epochSize);
+            expect(dataMarketInfo.sourceChainId).to.equal(testParams.sourceChainId);
+            expect(dataMarketInfo.sourceChainBlockTime).to.equal(testParams.sourceChainBlockTime);
+            expect(dataMarketInfo.useBlockNumberAsEpochId).to.equal(testParams.useBlockNumberAsEpochId);
+            expect(dataMarketInfo.enabled).to.equal(true);
+            expect(dataMarketInfo.dataMarketAddress).to.equal(dataMarketAddress);
+            expect(dataMarketInfo.createdAt).to.be.gt(0);
+        });
+    });
+
     describe("Snapshotter State", function () {
         it("should bulk assign snapshotters to slots", async function () {
             // Bulk assign snapshotters to slots

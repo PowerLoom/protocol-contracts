@@ -81,26 +81,26 @@ async function main() {
   const dataMarket = DataMarketContractFactory.attach(await proxyContract.dataMarketIdToAddress(1));
 
   const sequencerListValues = Array(DATA_MARKET_SEQUENCER_LIST.length).fill(true);
-  await (await dataMarket.updateAddresses(1, DATA_MARKET_SEQUENCER_LIST, sequencerListValues)).wait();
+  await (await proxyContract.updateAddresses(dataMarket.target, 1, DATA_MARKET_SEQUENCER_LIST, sequencerListValues)).wait();
   console.log("DataMarket sequencer list updated to:", await dataMarket.getSequencers());
 
-  await (await dataMarket.updateEpochManager(DATA_MARKET_EPOCH_MANAGER)).wait();
+  await (await proxyContract.updateEpochManager(dataMarket.target, DATA_MARKET_EPOCH_MANAGER)).wait();
   console.log("DataMarket epochManager updated to:", await dataMarket.epochManager());
 
   const validatorValues = Array(DATA_MARKET_VALIDATORS.length).fill(true);
-  await (await dataMarket.updateAddresses(0, DATA_MARKET_VALIDATORS, validatorValues)).wait();
+  await (await proxyContract.updateAddresses(dataMarket.target, 0, DATA_MARKET_VALIDATORS, validatorValues)).wait();
   console.log("DataMarket validators updated to:", await dataMarket.getValidators());
 
-  await (await dataMarket.updateSnapshotSubmissionWindow(DATA_MARKET_SNAPSHOT_SUBMISSION_WINDOW)).wait();
+  await (await proxyContract.updateSnapshotSubmissionWindow(dataMarket.target, DATA_MARKET_SNAPSHOT_SUBMISSION_WINDOW)).wait();
   console.log("DataMarket snapshotSubmissionWindow updated to:", await dataMarket.snapshotSubmissionWindow());
 
-  await (await dataMarket.updateAttestationSubmissionWindow(DATA_MARKET_ATTESTATION_SUBMISSION_WINDOW)).wait();
+  await (await proxyContract.updateAttestationSubmissionWindow(dataMarket.target, DATA_MARKET_ATTESTATION_SUBMISSION_WINDOW)).wait();
   console.log("DataMarket attestationSubmissionWindow updated to:", await dataMarket.attestationSubmissionWindow());
 
-  await (await dataMarket.updateBatchSubmissionWindow(DATA_MARKET_BATCH_SUBMISSION_WINDOW)).wait();
+  await (await proxyContract.updateBatchSubmissionWindow(dataMarket.target, DATA_MARKET_BATCH_SUBMISSION_WINDOW)).wait();
   console.log("DataMarket batchSubmissionWindow updated to:", await dataMarket.batchSubmissionWindow());
 
-  await (await dataMarket.updateDailySnapshotQuota(DAILY_SNAPSHOT_QUOTA)).wait();
+  await (await proxyContract.updateDailySnapshotQuota(dataMarket.target, DAILY_SNAPSHOT_QUOTA)).wait();
   console.log("DataMarket dailySnapshotQuota updated to:", await dataMarket.dailySnapshotQuota());
 
   console.log("DataMarket owner: ", await dataMarket.owner());
