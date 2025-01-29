@@ -58,17 +58,9 @@ describe("PowerloomProtocolState", function () {
 
         // Deploy the proxy contract for PowerloomProtocolState
         const PowerloomProtocolState = await ethers.getContractFactory("PowerloomProtocolState");
-        proxyContract = await upgrades.deployProxy(PowerloomProtocolState, [owner.address]);
+        proxyContract = await upgrades.deployProxy(PowerloomProtocolState, [owner.address, await snapshotterState.getAddress(), await dataMarketFactory.getAddress()]);
         await proxyContract.waitForDeployment();
-
-        // Set the snapshotter state address in the protocol state
-        const storageChangeTx = await proxyContract.updateSnapshotterState(await snapshotterState.getAddress());
-        await storageChangeTx.wait();
-
-        // Set the data market factory address in the protocol state
-        const dmFactoryChangeTx = await proxyContract.updateDataMarketFactory(await dataMarketFactory.getAddress());
-        await dmFactoryChangeTx.wait();
-
+        
         deploymentBlock = await time.latestBlock();
         // Increment deployment block to account for mining on deploy tx
         deploymentBlock++;
@@ -159,6 +151,82 @@ describe("PowerloomProtocolState", function () {
         });
     });
 
+    describe("Data Market Factory", function () {
+        it("Should set the right protocol state proxy address", async function () {
+            expect(await dataMarket1.protocolState()).to.equal(proxyContract.target);
+        });
+
+        it("Should create a new data market and verify the initial state", async function () {
+            // Test parameters
+            const testParams = {
+                ownerAddress: owner.address,
+                epochSize: 10,
+                sourceChainId: 137,
+                sourceChainBlockTime: 20000,
+                useBlockNumberAsEpochId: false
+            };
+
+            // Create data market
+            const dataMarketTx = await proxyContract.createDataMarket(
+                testParams.ownerAddress,
+                testParams.epochSize,
+                testParams.sourceChainId,
+                testParams.sourceChainBlockTime,
+                testParams.useBlockNumberAsEpochId
+            );
+            const receipt = await dataMarketTx.wait();
+            expect(receipt.status).to.equal(1);
+
+            // Get the data market address from events
+            const filter = dataMarketFactory.filters.DataMarketCreated();
+            const logs = await dataMarketFactory.queryFilter(filter, receipt.blockNumber, receipt.blockNumber);
+            const dataMarketAddress = logs[0].args.dataMarketAddress;
+
+            // Create contract instance
+            const dataMarketContract = await ethers.getContractFactory("PowerloomDataMarket");
+            const dataMarket = dataMarketContract.attach(dataMarketAddress);
+
+            // Verify constructor arguments were set correctly
+            expect(await dataMarket.owner()).to.equal(testParams.ownerAddress);
+            expect(await dataMarket.EPOCH_SIZE()).to.equal(testParams.epochSize);
+            expect(await dataMarket.SOURCE_CHAIN_ID()).to.equal(testParams.sourceChainId);
+            expect(await dataMarket.SOURCE_CHAIN_BLOCK_TIME()).to.equal(testParams.sourceChainBlockTime);
+            expect(await dataMarket.USE_BLOCK_NUMBER_AS_EPOCH_ID()).to.equal(testParams.useBlockNumberAsEpochId);
+            expect(await dataMarket.protocolState()).to.equal(proxyContract.target);
+
+            // Verify initialized state variables
+            expect(await dataMarket.dailySnapshotQuota()).to.equal(1000);
+            expect(await dataMarket.dayCounter()).to.equal(1);
+            expect(await dataMarket.epochIdCounter()).to.equal(0);
+            expect(await dataMarket.isInitialized()).to.equal(true);
+            expect(await dataMarket.DAY_SIZE()).to.equal(864000000);
+            expect(await dataMarket.rewardsEnabled()).to.equal(false);
+            expect(await dataMarket.minAttestationsForConsensus()).to.equal(2);
+
+            // Verify epochs in a day calculation
+            const expectedEpochsInADay = BigInt(864000000) / (BigInt(testParams.sourceChainBlockTime) * BigInt(testParams.epochSize));
+            expect(await dataMarket.epochsInADay()).to.equal(expectedEpochsInADay);
+
+            // Verify data market is enabled in protocol state
+            expect(await proxyContract.dataMarketEnabled(dataMarketAddress)).to.equal(true);
+
+            // Verify data market count and mapping
+            expect(await proxyContract.dataMarketCount()).to.equal(3); // Assuming this is the third data market created
+            expect(await proxyContract.dataMarketIdToAddress(3)).to.equal(dataMarketAddress);
+
+            // Verify data market info in protocol state
+            const dataMarketInfo = await proxyContract.dataMarkets(dataMarketAddress);
+            expect(dataMarketInfo.ownerAddress).to.equal(testParams.ownerAddress);
+            expect(dataMarketInfo.epochSize).to.equal(testParams.epochSize);
+            expect(dataMarketInfo.sourceChainId).to.equal(testParams.sourceChainId);
+            expect(dataMarketInfo.sourceChainBlockTime).to.equal(testParams.sourceChainBlockTime);
+            expect(dataMarketInfo.useBlockNumberAsEpochId).to.equal(testParams.useBlockNumberAsEpochId);
+            expect(dataMarketInfo.enabled).to.equal(true);
+            expect(dataMarketInfo.dataMarketAddress).to.equal(dataMarketAddress);
+            expect(dataMarketInfo.createdAt).to.be.gt(0);
+        });
+    });
+
     describe("Snapshotter State", function () {
         it("should bulk assign snapshotters to slots", async function () {
             // Bulk assign snapshotters to slots
@@ -185,7 +253,7 @@ describe("PowerloomProtocolState", function () {
             )).to.emit(snapshotterState, "ConfigurationUpdated")
               .withArgs("LegacyNodesConfig", legacyConfig.legacyNodeCount);
 
-            await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 4, true))
+            await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 6, true))
                 .to.emit(snapshotterState, "NodeMinted")
                 .withArgs(snapshotter1.address, 1)
                 .to.emit(snapshotterState, "NodeMinted")
@@ -225,17 +293,6 @@ describe("PowerloomProtocolState", function () {
     describe("Data Market Protocol State", function () {
         it("Should set the right protocol state proxy address", async function () {
             expect(await dataMarket1.protocolState()).to.equal(proxyContract.target);
-        });
-
-        it("Should update protocol state in data market contract", async function () {
-            const PowerloomProtocolState = await ethers.getContractFactory("PowerloomProtocolState");
-            const newProxyContract = await upgrades.deployProxy(PowerloomProtocolState, [owner.address]);
-            await newProxyContract.waitForDeployment();
-
-            const updateTx = await dataMarket1.updateProtocolState(newProxyContract.target);
-            await updateTx.wait();
-
-            expect(await dataMarket1.protocolState()).to.equal(newProxyContract.target);
         });
     });
 
@@ -364,7 +421,8 @@ describe("PowerloomProtocolState", function () {
         });
 
         it("Should return empty string for empty cids in snapshot", async function () {
-            expect(await proxyContract.maxSnapshotsCid(dataMarket1.target, projectId, currentEpoch.epochId)).to.equal("");
+            expect((await proxyContract.maxSnapshotsCid(dataMarket1.target, projectId, currentEpoch.epochId))[0]).to.equal("");
+            expect((await proxyContract.maxSnapshotsCid(dataMarket1.target, projectId, currentEpoch.epochId))[1]).to.equal(0);
         });
 
         it("Should set the project first epoch id on batch submission", async function () {
@@ -600,7 +658,8 @@ describe("PowerloomProtocolState", function () {
             expect(project2StateAfterAttestation.snapshotCid).to.equal(snapshotCids[1]);
 
             expect(await proxyContract.lastFinalizedSnapshot(dataMarket1.target, projectIds[0])).to.equal(epochId);
-            expect(await proxyContract.maxSnapshotsCid(dataMarket1.target, projectIds[1], epochId)).to.equal(snapshotCids[1]);
+            expect((await proxyContract.maxSnapshotsCid(dataMarket1.target, projectIds[1], epochId))[0]).to.equal(snapshotCids[1]);
+            expect((await proxyContract.maxSnapshotsCid(dataMarket1.target, projectIds[1], epochId))[1]).to.equal(1);
             expect(await proxyContract.batchCidAttestationStatus(dataMarket1.target, batchCid)).to.equal(true);
         });
 
@@ -988,12 +1047,8 @@ describe("PowerloomProtocolState", function () {
             timestampBefore = blockBefore.timestamp + 1;
 
             await expect(proxyContract.forceCompleteConsensusAttestations(dataMarket1.target, batchCid, epochId))
-                .to.emit(proxyContract, "SnapshotFinalized")
-                .withArgs(dataMarket1.target, epochId, epochEnd, projectIds[0], snapshotCids[0], blockTimestamp + 3)
-                .to.emit(proxyContract, "SnapshotFinalized")
-                .withArgs(dataMarket1.target, epochId, epochEnd, projectIds[1], snapshotCids[1], blockTimestamp + 3)
-                .to.emit(proxyContract, "ValidatorAttestationsInvalidated")
-                .withArgs(dataMarket1.target, epochId, batchCid, otherAccount1.address, timestampBefore);
+                .to.emit(proxyContract, "TriggerBatchResubmission")
+                .withArgs(dataMarket1.target, epochId, batchCid, timestampBefore);
         });
 
         it("Should trigger resubmission if validators are divergent", async function () {
@@ -1334,17 +1389,35 @@ describe("PowerloomProtocolState", function () {
                 legacyConfig.legacyNodeNonKycedCooldown
             )).to.emit(snapshotterState, "ConfigurationUpdated")
               .withArgs("LegacyNodesConfig", legacyConfig.legacyNodeCount);
-            await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 2, true))
+            await expect(snapshotterState.adminMintLegacyNodes(snapshotter1.address, 6, true))
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 1)
                 .to.emit(snapshotterState, "NodeMinted")
                 .withArgs(snapshotter1.address, 2)
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 3)
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 4)
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 5)
+                .to.emit(snapshotterState, "NodeMinted")
+                .withArgs(snapshotter1.address, 6);
             await expect(snapshotterState.assignSnapshotterToNodeBulkAdmin(
-                [1, 2], 
-                [otherAccount1.address, otherAccount2.address]
+                [1, 2, 3, 4, 5, 6], 
+                [otherAccount1.address, otherAccount2.address, otherAccount1.address, otherAccount2.address, otherAccount1.address, otherAccount2.address]
             )).to.emit(snapshotterState, "allSnapshottersUpdated")
               .withArgs(otherAccount1.address, true)
               .to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount2.address, true)
+              .to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount1.address, true)
+              .to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount2.address, true)
+              .to.emit(snapshotterState, "allSnapshottersUpdated")
+              .withArgs(otherAccount1.address, true)
+              .to.emit(snapshotterState, "allSnapshottersUpdated")
               .withArgs(otherAccount2.address, true);
-    
+            
             await proxyContract.updateAddresses(dataMarket1.target, 1, [sequencer1.address], [true]); // set sequencer1 as a sequencer
             await proxyContract.updateAddresses(dataMarket2.target, 1, [sequencer2.address], [true]); // set sequencer2 as a sequencer
 
@@ -1359,7 +1432,6 @@ describe("PowerloomProtocolState", function () {
             
             await proxyContract.updateRewardPoolSize(dataMarket1.target, rewardBasePoints);
             await proxyContract.updateDailySnapshotQuota(dataMarket1.target, snapshotQuota);
-            await dataMarket1.connect(sequencer1).updateEligibleNodesForDay(1, eligibleNodes);
 
             const slot1Dm1Submissions = 8;
             const slot2Dm1Submissions = 6;
@@ -1375,7 +1447,6 @@ describe("PowerloomProtocolState", function () {
             const slot2Dm2Submissions = 3;
 
             eligibleNodes = 1;
-            await dataMarket2.connect(sequencer2).updateEligibleNodesForDay(1, eligibleNodes);
             // Set some reward points and snapshot counts for dataMarket2 - slots 4 and 5, submissions and 3 respectively
             await proxyContract.connect(sequencer2).updateRewards(dataMarket2.target, [1, 2], [slot1Dm2Submissions, slot2Dm2Submissions], 1, eligibleNodes);
             const expectedRewardsSlot1 = 150; // 50 for dataMarket1 + 100 for dataMarket2
@@ -1418,6 +1489,38 @@ describe("PowerloomProtocolState", function () {
             expect(await dataMarket2.eligibleNodesForDay(1)).to.equal(1);
         });
 
+        it("Should update eligible nodes for day atomically", async function () {
+            let eligibleNodes = 4;
+            const rewardBasePoints = 100;
+            const snapshotQuota = 4;
+            
+            await proxyContract.updateRewardPoolSize(dataMarket1.target, rewardBasePoints);
+            await proxyContract.updateDailySnapshotQuota(dataMarket1.target, snapshotQuota);
+            // the very first call to updateRewards should update the eligible nodes for day
+            // any other further updates should not update the eligible nodes for day
+            await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [1, 2], [5, 5], 1, eligibleNodes).then(async () => {
+                const eligibleNodesForDay = await dataMarket1.eligibleNodesForDay(1);
+                expect(eligibleNodesForDay).to.equal(eligibleNodes);
+                expect(await dataMarket1.slotsRemainingToBeRewardedCount(1)).to.equal(eligibleNodes - 2);
+            });
+            // altering eligible counts to a higher number should not update the eligible nodes for day
+            alteredEligibleNodesCount = 6;
+            await proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [3, 4], [5, 5], 1, alteredEligibleNodesCount).then(async () => {
+                // once we set the initial eligible nodes count as 4, this update does not change the slots remaining to be rewarded
+                expect(await dataMarket1.slotsRemainingToBeRewardedCount(1)).to.equal(0);
+            });
+            // any further updates should not update the eligible nodes for day and revert with E47
+            await expect(proxyContract.connect(sequencer1).updateRewards(dataMarket1.target, [5, 6], [5, 5], 1, alteredEligibleNodesCount)).to.be.revertedWith("E47");
+            // test that rewards are not distributed for slots 5 and 6 because they are past the eligible nodes count
+            await proxyContract.slotRewardPoints(dataMarket1.target, 5).then(async (rewards) => {
+                expect(rewards).to.equal(0);
+            });
+            await proxyContract.slotRewardPoints(dataMarket1.target, 6).then(async (rewards) => {
+                expect(rewards).to.equal(0);
+            });
+
+        });
+
         it("Should store rewards successfully", async function () {
             await expect(proxyContract.updateRewardPoolSize(dataMarket1.target, 100)).not.to.be.reverted;
             expect(await proxyContract.rewardPoolSize(dataMarket1.target)).to.be.equal(100);
@@ -1449,11 +1552,8 @@ describe("PowerloomProtocolState", function () {
             // test that rewards are not distributed
             expect(await proxyContract.slotRewardPoints(dataMarket1.target, 1)).to.equal(0);
 
-            await dataMarket1.connect(otherAccount1).updateEligibleNodesForDay(1, 1);
-
             const rewardPoolSize = await dataMarket1.rewardPoolSize();
-            const eligibleNodesForDayAfter = await dataMarket1.eligibleNodesForDay(1);
-            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDayAfter;
+            const expectedRewardPoints = rewardPoolSize / 1n;
 
             const blockTimestamp2 = await time.latest();
             await expect(proxyContract.connect(otherAccount1).updateRewards(
@@ -1480,7 +1580,7 @@ describe("PowerloomProtocolState", function () {
             );
 
             const rewardPoolSize = ethers.parseEther("100");
-            await expect(dataMarket1.connect(owner).updateRewardPoolSize(rewardPoolSize)).to.not.be.reverted;
+            await expect(proxyContract.connect(owner).updateRewardPoolSize(dataMarket1.target, rewardPoolSize)).to.not.be.reverted;
 
             // send rewards for distribution
             await owner.sendTransaction({
@@ -1506,8 +1606,8 @@ describe("PowerloomProtocolState", function () {
             expect(await dataMarket1.eligibleNodesForDay(1)).to.equal(2);
             expect(await dataMarket1.rewardPoolSize()).to.equal(rewardPoolSize);
 
-            const totalNodesHeld = await snapshotterState.getUserOwnedNodeIds(snapshotter1.address);
-            const totalRewards = BigInt(totalNodesHeld.length) * BigInt(expectedRewardPoints);
+            const totalNodesHeldBySnapshotter1AndEligibleAsWell = 2;  // slot IDs 1 and 2 are both minted to snapshotter1
+            const totalRewards = BigInt(totalNodesHeldBySnapshotter1AndEligibleAsWell) * BigInt(expectedRewardPoints);
 
             const contractBalanceBefore = await ethers.provider.getBalance(proxyContract.target);
             // claim rewards to node holder of slot 1
@@ -1521,8 +1621,8 @@ describe("PowerloomProtocolState", function () {
 
         it("Should successfully claim rewards from multiple data markets", async function () {
             const rewardPoolSize = ethers.parseEther("100");
-            await expect(dataMarket1.connect(owner).updateRewardPoolSize(rewardPoolSize)).to.not.be.reverted;
-            await expect(dataMarket2.connect(owner).updateRewardPoolSize(rewardPoolSize)).to.not.be.reverted;
+            await expect(proxyContract.connect(owner).updateRewardPoolSize(dataMarket1.target, rewardPoolSize)).to.not.be.reverted;
+            await expect(proxyContract.connect(owner).updateRewardPoolSize(dataMarket2.target, rewardPoolSize)).to.not.be.reverted;
 
             await proxyContract.updateAddresses(
                 dataMarket1.target,
@@ -1570,8 +1670,8 @@ describe("PowerloomProtocolState", function () {
             .withArgs(dataMarket2.target, otherAccount1.address, 1, 1, expectedRewardPoints, blockTimestamp + 2)
             .withArgs(dataMarket2.target, otherAccount2.address, 2, 1, expectedRewardPoints, blockTimestamp + 2);
 
-            const totalNodesHeld = await snapshotterState.getUserOwnedNodeIds(snapshotter1.address);
-            const totalRewards = BigInt(totalNodesHeld.length) * BigInt(expectedRewardPoints);
+            const totalNodesHeldBySnapshotter1AndEligibleAsWell = 2;  // slot IDs 1 and 2 are both minted to snapshotter1
+            const totalRewards = BigInt(totalNodesHeldBySnapshotter1AndEligibleAsWell) * BigInt(expectedRewardPoints);
             const totalRewardsForBothMarkets = totalRewards * 2n;
 
             const contractBalanceBefore = await ethers.provider.getBalance(proxyContract.target);
@@ -1795,32 +1895,38 @@ describe("PowerloomProtocolState", function () {
         it("Should update data market roles", async function () {
             // set otherAccount1 as a validator
             const role = 0
-            await proxyContract.updateAddresses(
+            await expect(proxyContract.updateAddresses(
                 dataMarket1.target,
                 role,
                 [otherAccount1.address], 
                 [true],
-            );
+            )).to.emit(proxyContract, "ValidatorsUpdated")
+              .withArgs(dataMarket1.target, otherAccount1.address, true);
+            // check for total validators count to be 1
             expect(await proxyContract.getTotalValidatorsCount(dataMarket1.target)).to.be.equal(1);
 
-            // set otherAccount1 as a sequencer
+            // set otherAccount2 as a sequencer
             const role1 = 1
-            await proxyContract.updateAddresses(
+            await expect(proxyContract.updateAddresses(
                 dataMarket1.target,
                 role1,
-                [otherAccount1.address], 
+                [otherAccount2.address], 
                 [true],
-            );
-            expect(await proxyContract.getTotalSequencersCount(dataMarket1.target)).to.be.equal(1);
+            )).to.emit(proxyContract, "SequencersUpdated")
+              .withArgs(dataMarket1.target, otherAccount2.address, true);
+            // check for total sequencers count to be 2
+            expect(await proxyContract.getTotalSequencersCount(dataMarket1.target)).to.be.equal(2);
 
             // set otherAccount1 as an admin
             const role2 = 2
-            await proxyContract.updateAddresses(
+            await expect(proxyContract.updateAddresses(
                 dataMarket1.target,
                 role2,
                 [otherAccount1.address], 
                 [true],
-            );
+            )).to.emit(proxyContract, "AdminsUpdated")
+              .withArgs(dataMarket1.target, otherAccount1.address, true);
+            // check for total admins count to be 1
             expect((await dataMarket1.getAdmins()).length).to.be.equal(1);
 
             // set otherAccount1 as a non-valid role - will revert silently due to solidity enum checking
@@ -1833,11 +1939,6 @@ describe("PowerloomProtocolState", function () {
             )).to.be.reverted;
         });
 
-        it("Should update day size", async function () {
-            await expect(proxyContract.updateDaySize(dataMarket1.target, 100)).not.to.be.reverted;
-            expect(await proxyContract.DAY_SIZE(dataMarket1.target)).to.be.equal(100);
-        });
-
         it("Should get and update data market state", async function () {
             expect(await proxyContract.deploymentBlockNumber(dataMarket1.target)).to.equal(deploymentBlock);
 
@@ -1847,11 +1948,12 @@ describe("PowerloomProtocolState", function () {
             await expect(proxyContract.updateSnapshotSubmissionWindow(dataMarket1.target, 10)).not.to.be.reverted;
             expect(await proxyContract.snapshotSubmissionWindow(dataMarket1.target)).to.be.equal(10);
 
-            await expect(proxyContract.updateAttestationSubmissionWindow(dataMarket1.target, 10)).not.to.be.reverted;
-            expect(await proxyContract.attestationSubmissionWindow(dataMarket1.target)).to.be.equal(10);
 
-            await expect(proxyContract.updateBatchSubmissionWindow(dataMarket1.target, 10)).not.to.be.reverted;
-            expect(await proxyContract.batchSubmissionWindow(dataMarket1.target)).to.be.equal(10);
+            await expect(proxyContract.updateBatchSubmissionWindow(dataMarket1.target, 20)).not.to.be.reverted;
+            expect(await proxyContract.batchSubmissionWindow(dataMarket1.target)).to.be.equal(20);
+
+            await expect(proxyContract.updateAttestationSubmissionWindow(dataMarket1.target, 30)).not.to.be.reverted;
+            expect(await proxyContract.attestationSubmissionWindow(dataMarket1.target)).to.be.equal(30);
 
             await expect(proxyContract.loadSlotSubmissions(dataMarket1.target, 1, 1, 20)).not.to.be.reverted;
             expect(await proxyContract.slotSubmissionCount(dataMarket1.target, 1, 1)).to.be.equal(20);
@@ -2082,10 +2184,10 @@ describe("PowerloomProtocolState", function () {
 
             await expect(proxyContract.toggleRewards(dataMarket1.target))
                 .to.not.be.reverted;
-            expect(await proxyContract.rewardsEnabled(dataMarket1.target)).to.be.false;
+            expect(await proxyContract.rewardsEnabled(dataMarket1.target)).to.be.true;
             await expect(proxyContract.toggleRewards(dataMarket1.target))
                 .to.not.be.reverted;
-            expect(await proxyContract.rewardsEnabled(dataMarket1.target)).to.be.true;
+            expect(await proxyContract.rewardsEnabled(dataMarket1.target)).to.be.false;
         });
 
         it("Should successfully get and update slot related data", async function () {
@@ -2164,11 +2266,9 @@ describe("PowerloomProtocolState", function () {
                 [true],
             );
 
-            await dataMarket1.connect(otherAccount1).updateEligibleNodesForDay(1, 1);
 
             const rewardPoolSize = await dataMarket1.rewardPoolSize();
-            const eligibleNodesForDay = await dataMarket1.eligibleNodesForDay(1);
-            const expectedRewardPoints = rewardPoolSize / eligibleNodesForDay;
+            const expectedRewardPoints = rewardPoolSize / 1n;
 
             const dailySnapshotQuota = await proxyContract.dailySnapshotQuota(dataMarket1.target);
 
@@ -2243,10 +2343,12 @@ describe("PowerloomProtocolState", function () {
             const submissions = 5;
             const day = 1;
             
-            await expect(dataMarket1.connect(otherAccount2).updateRewards(
-                slotId,
-                submissions,
-                day
+            await expect(proxyContract.connect(otherAccount2).updateRewards(
+                dataMarket1.target,
+                [slotId],
+                [submissions],
+                day,
+                1
             )).to.be.revertedWith("E04");
 
             await expect(proxyContract.connect(otherAccount2).updateRewards(
@@ -2257,7 +2359,8 @@ describe("PowerloomProtocolState", function () {
                 1
             )).to.be.revertedWith("E04");
 
-            await expect(dataMarket1.connect(otherAccount2).endBatchSubmissions(
+            await expect(proxyContract.connect(otherAccount2).endBatchSubmissions(
+                dataMarket1.target,
                 epochId
             )).to.be.revertedWith("E04");
 
@@ -2284,7 +2387,8 @@ describe("PowerloomProtocolState", function () {
             const newRewardPoolSize = ethers.parseEther("2000");
             const newEpochManager = otherAccount2.address;
     
-            await expect(dataMarket1.connect(otherAccount1).forceCompleteConsensusAttestations(
+            await expect(proxyContract.connect(otherAccount1).forceCompleteConsensusAttestations(
+                dataMarket1.target,
                 batchCid,
                 epochId
             )).to.be.revertedWith("E03");
@@ -2296,56 +2400,79 @@ describe("PowerloomProtocolState", function () {
                 epochId
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateSnapshotSubmissionWindow(
+            await expect(proxyContract.connect(otherAccount1).updateSnapshotSubmissionWindow(
+                dataMarket1.target,
                 newWindow
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateBatchSubmissionWindow(
+            await expect(proxyContract.connect(otherAccount1).updateBatchSubmissionWindow(
+                dataMarket1.target,
                 newWindow
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateAttestationSubmissionWindow(
+            await expect(proxyContract.connect(otherAccount1).updateAttestationSubmissionWindow(
+                dataMarket1.target,
                 newWindow
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateMinAttestationsForConsensus(
+            await expect(proxyContract.connect(otherAccount1).updateMinAttestationsForConsensus(
+                dataMarket1.target,
                 newWindow
             )).to.be.revertedWith("E03");
 
-            await expect(dataMarket1.connect(otherAccount1).updateDailySnapshotQuota(
+            await expect(proxyContract.connect(otherAccount1).updateDailySnapshotQuota(
+                dataMarket1.target,
                 newQuota
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateRewardPoolSize(
+            await expect(proxyContract.connect(otherAccount1).updateRewardPoolSize(
+                dataMarket1.target,
                 newRewardPoolSize
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateEpochManager(
+            await expect(proxyContract.connect(otherAccount1).updateEpochManager(
+                dataMarket1.target,
                 newEpochManager
             )).to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).toggleRewards())
+            await expect(proxyContract.connect(otherAccount1).toggleRewards(
+                dataMarket1.target
+            ))
                 .to.be.revertedWith("E03");
     
-            await expect(dataMarket1.connect(otherAccount1).updateDaySize(100))
-                .to.be.revertedWith("E03");
-    
-            await expect(dataMarket1.connect(otherAccount1).setSequencerId("test-id"))
+            await expect(proxyContract.connect(otherAccount1).setSequencerId(
+                dataMarket1.target,
+                "test-id"
+            ))
                 .to.be.revertedWith("E08");
 
-            await expect(dataMarket1.connect(otherAccount1).forceSkipEpoch(1, 100))
+            await expect(proxyContract.connect(otherAccount1).forceSkipEpoch(
+                dataMarket1.target,
+                1, 
+                100
+            ))
                 .to.be.revertedWith("E03");
 
-            await expect(dataMarket1.connect(otherAccount1).loadSlotSubmissions(1, 1, 20))
+            await expect(proxyContract.connect(otherAccount1).loadSlotSubmissions(
+                dataMarket1.target,
+                1, 
+                1, 
+                20
+            ))
                 .to.be.revertedWith("E03");
 
-            await expect(dataMarket1.connect(otherAccount1).loadCurrentDay(26))
+            await expect(proxyContract.connect(otherAccount1).loadCurrentDay(
+                dataMarket1.target,
+                26
+            ))
                 .to.be.revertedWith("E03");
 
-            await expect(dataMarket1.connect(otherAccount1).updateProtocolState("0x0000000000000000000000000000000000000000"))
-                .to.be.revertedWith("E03");
-
-            await expect(dataMarket1.connect(otherAccount1).updateAddresses(1, [otherAccount1.address], [true]))
+            await expect(proxyContract.connect(otherAccount1).updateAddresses(
+                dataMarket1.target,
+                1, 
+                [otherAccount1.address], 
+                [true]
+            ))
                 .to.be.revertedWith("E03");
         });
 

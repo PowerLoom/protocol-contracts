@@ -14,11 +14,11 @@
  * - ReentrancyGuard: Prevents reentrancy attacks
  */
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.24;
 
 // Import OpenZeppelin contracts
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -30,7 +30,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
  * @title PowerloomNodes
  * @dev Main contract for Powerloom Snapshotter Node management and minting
  */
-contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable, ERC1155PausableUpgradeable, ERC1155SupplyUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
+contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgradeable, ERC1155PausableUpgradeable, ERC1155SupplyUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -128,7 +128,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
     event SnapshotterStateUpdated(address indexed newSnapshotterState);
     event allSnapshottersUpdated(address snapshotterAddress, bool allowed);
     event AdminsUpdated(address adminAddress, bool allowed);
-
+    event SnapshotterAddressChanged(uint256 nodeId, address oldSnapshotter, address newSnapshotter);
     // receive ETH
     receive() external payable {}
 
@@ -170,6 +170,8 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
      * @param _maxSupply The new maximum supply
      */
     function updateMaxSupply(uint256 _maxSupply) public onlyOwner {
+        require(_maxSupply != 0, "E45");
+        require(_maxSupply > nodeCount, "E46");
         MAX_SUPPLY = _maxSupply;
         emit ConfigurationUpdated("MaxSupply", _maxSupply);
     }
@@ -225,6 +227,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         require(_legacyNodeInitialClaimPercentage <= 1e6, "Initial claim percentage must be less than 100%");
         require(_legacyNodeValue > 0, "Legacy node value must be greater than 0");
         require(_legacyTokensSentOnL1 < _legacyNodeValue, "Tokens sent on L1 must be less than the total node value");
+        require(_legacyNodeVestingDays > _legacyNodeCliff, "Vesting days must be greater than the cliff period");
         legacyNodeCount = _legacyNodeCount;
         legacyNodeInitialClaimPercentage = _legacyNodeInitialClaimPercentage;
         legacyNodeCliff = _legacyNodeCliff;
@@ -241,6 +244,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
      * @param _mintStartTime The start time for minting
      */
     function setMintStartTime(uint256 _mintStartTime) public onlyOwner {
+        require(_mintStartTime != 0, "E45");
         mintStartTime = _mintStartTime;
         emit ConfigurationUpdated("MintStartTime", _mintStartTime);
     }
@@ -291,6 +295,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
      * @param _nodePrice The new price
      */
     function updateNodePrice(uint256 _nodePrice) public onlyOwner {
+        require(_nodePrice > 0, "E45");
         nodePrice = _nodePrice;
         emit ConfigurationUpdated("NodePrice", _nodePrice);
     }
@@ -440,7 +445,8 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         
         uint256 excessETH = msg.value - cost;
         if (excessETH > 0) {
-            payable(msg.sender).transfer(excessETH);
+            (bool success, ) = payable(msg.sender).call{value: excessETH}("");
+            require(success, "Failed to send excess ETH");
         }
         _mintNode(amount, msg.sender, false, false);
     }
@@ -458,8 +464,12 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         }
 
         if (node.snapshotterAddress != address(0)){
-            allSnapshotters[node.snapshotterAddress] = false;
-            emit allSnapshottersUpdated(node.snapshotterAddress, false);
+            snapshotterToNodeIds[node.snapshotterAddress].remove(_nodeId);
+
+            if (snapshotterToNodeIds[node.snapshotterAddress].length() == 0) {
+                allSnapshotters[node.snapshotterAddress] = false;
+                emit allSnapshottersUpdated(node.snapshotterAddress, false);
+            }
             node.snapshotterAddress = address(0);
         }
 
@@ -488,6 +498,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         // check node is not burned
         require(nodeInfo[nodeId].burnedOn == 0, "Node is burned");
         NodeInfo storage node = nodeInfo[nodeId];
+        require(snapshotterAddress != node.snapshotterAddress, "Same address already assigned");
         // If the node already has a snapshotter address assigned, remove the previous snapshotter address
         if (node.snapshotterAddress != address(0)) {
             snapshotterToNodeIds[node.snapshotterAddress].remove(nodeId);
@@ -509,7 +520,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         node.snapshotterAddress = snapshotterAddress;
         node.lastUpdated = block.timestamp;
         snapshotterToNodeIds[snapshotterAddress].add(nodeId);
-
+        emit SnapshotterAddressChanged(nodeId, node.snapshotterAddress, snapshotterAddress);
         if (!allSnapshotters[snapshotterAddress]) {
             allSnapshotters[snapshotterAddress] = true;
             emit allSnapshottersUpdated(snapshotterAddress, true);
@@ -581,12 +592,13 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         emit NodeBurned(msg.sender, _nodeId);
         _disableNode(_nodeId);
         nodeInfo[_nodeId].burnedOn = block.timestamp;
+
         
         if (nodeInfo[_nodeId].isLegacy){
             if (nodeInfo[_nodeId].isKyced){
                 uint256 initialClaim = getLegacyInitialClaim();
-                payable(msg.sender).transfer(initialClaim);
-            
+                (bool success, ) = payable(msg.sender).call{value: initialClaim}("");
+                require(success, "Failed to send initial claim");
                 nodeIdToVestingInfo[_nodeId] = LegacyNodeVestingInfo(
                     msg.sender,
                     initialClaim,
@@ -620,7 +632,7 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
         uint256 PRECISION_FACTOR = 1e9;
         uint256 daysSinceVestingStarted = ((block.timestamp - legacyNodeVestingStart) * PRECISION_FACTOR) / 1 days;
         uint256 initialClaim = getLegacyInitialClaim();
-        uint256 totalTokens = legacyNodeValue - initialClaim;
+        uint256 totalTokens = legacyNodeValue - initialClaim - legacyTokensSentOnL1;
         
         if (daysSinceVestingStarted/PRECISION_FACTOR < legacyNodeCliff) {
             return 0;
@@ -662,29 +674,23 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
      */
     function claimableNodeTokens(uint256 _nodeId) public view returns (uint256 _claimableNodeTokens) {
         NodeInfo memory node = nodeInfo[_nodeId];
+        require(node.burnedOn > 0, "Need to Burn the Node First");
+        require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
 
         if (node.isLegacy){
             if (node.isKyced){
-                require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");
-                require(node.burnedOn > 0, "Need to Burn the Node First");
-                
                 _claimableNodeTokens = claimableLegacyNodeTokens(_nodeId);
             }
             else{
-                require(node.burnedOn > 0, "Need to Burn the Node First");
                 require(block.timestamp >= legacyNodeVestingStart + legacyNodeNonKycedCooldown, "Legacy node non-kyced cooldown not yet met");
                 require(node.claimedTokens == false, "Tokens already claimed");
-                require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
-
                 _claimableNodeTokens = node.nodePrice;
 
             }
         }
         else{
-            require(node.burnedOn > 0, "Need to Burn the Node First");
             require(block.timestamp >= node.burnedOn + snapshotterTokenClaimCooldown, "Snapshotter token claim cooldown not yet met");
             require(node.claimedTokens == false, "Tokens already claimed");
-            require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
 
             _claimableNodeTokens = node.nodePrice;
         }
@@ -716,40 +722,29 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, OwnableUpgradeable
                 emit LegacyNodeTokensClaimed(msg.sender, _nodeId, _claimableNodeTokens);
             }
             else{
-                require(node.burnedOn > 0, "Need to Burn the Node First");
-                require(node.claimedTokens == false, "Tokens already claimed");
-                require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
-
                 node.claimedTokens = true;
-                payable(msg.sender).transfer(_claimableNodeTokens);
+                (bool success, ) = payable(msg.sender).call{value: _claimableNodeTokens}("");
+                require(success, "Failed to send legacy node tokens");
                 emit LegacyNodeTokensClaimed(msg.sender, _nodeId, _claimableNodeTokens);
             }
         }
         else{
-            require(node.burnedOn > 0, "Need to Burn the Node First");
-            require(block.timestamp >= node.burnedOn + snapshotterTokenClaimCooldown, "Snapshotter token claim cooldown not yet met");
-            require(node.claimedTokens == false, "Tokens already claimed");
-            require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
 
             node.claimedTokens = true;
-            payable(msg.sender).transfer(_claimableNodeTokens);
+            (bool success, ) = payable(msg.sender).call{value: _claimableNodeTokens}("");
+            require(success, "Failed to send snapshotter tokens");
             emit SnapshotterTokensClaimed(msg.sender, _nodeId, _claimableNodeTokens);
         }
     }
 
-    /**
-     * @dev Allows deposit of ETH into contract
-     */
-    function deposit() public payable onlyOwner {
-        emit Deposit(msg.sender, msg.value);
-    }
 
     /**
      * @dev Allows the owner to withdraw all funds from the contract in case of emergency
      */
     function emergencyWithdraw() public onlyOwner {
         uint256 balance = address(this).balance;
-        payable(msg.sender).transfer(balance);
+        (bool success, ) = payable(msg.sender).call{value: balance}("");
+        require(success, "Failed to send funds");
         emit EmergencyWithdraw(msg.sender, balance);
     }
 

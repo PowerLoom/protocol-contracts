@@ -19,14 +19,9 @@ describe("DataMarket Deployment", function () {
     await dataMarketFactory.waitForDeployment();
 
     ProxyV2 = await ethers.getContractFactory("PowerloomProtocolState");
-    proxyContract = await upgrades.deployProxy(ProxyV2, [deployer.address]);
+    proxyContract = await upgrades.deployProxy(ProxyV2, [deployer.address, await snapshotterState.getAddress(), await dataMarketFactory.getAddress()]);
     await proxyContract.waitForDeployment();
 
-    const storageChangeTx = await proxyContract.updateSnapshotterState(await snapshotterState.getAddress());
-    await storageChangeTx.wait();
-
-    const dmFactoryChangeTx = await proxyContract.updateDataMarketFactory(await dataMarketFactory.getAddress());
-    await dmFactoryChangeTx.wait();
   });
 
   it("should create a DataMarket", async function () {
@@ -46,4 +41,13 @@ describe("DataMarket Deployment", function () {
     const dataMarketCreatedEventSig = "DataMarketCreated(address indexed ownerAddress, uint8 epochSize, uint256 sourceChainId, uint256 sourceChainBlockTime, bool useBlockNumberAsEpochId, address protocolState, address dataMarketAddress)";
     await expect(proxyContract.createDataMarket(deployer.address, 1, 137, 2, true)).to.emit(dataMarketFactory, dataMarketCreatedEventSig);
   });
+    
+  it("Should deploy an implementation contract on creation", async function () {
+    const dataMarketContract = await ethers.getContractFactory("PowerloomDataMarket");
+    const dataMarket = await dataMarketContract.deploy();
+    await dataMarket.waitForDeployment();
+    expect(dataMarket.target).to.not.equal(ethers.ZeroAddress);
+  });
+
+  
 });

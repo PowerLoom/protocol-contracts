@@ -3,7 +3,7 @@
 
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
@@ -16,9 +16,9 @@ import {PowerloomDataMarket} from "./DataMarket.sol";
 /**
  * @title PowerloomProtocolState
  * @dev This contract manages the state of the Powerloom Protocol, including data markets and snapshotter assignments.
- * It inherits from Initializable, OwnableUpgradeable, and UUPSUpgradeable.
+ * It inherits from Initializable, Ownable2StepUpgradeable, and UUPSUpgradeable.
  */
-contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
     
     /**
@@ -47,8 +47,8 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
 
     mapping(uint256 => uint256) public slotRewards;
 
-    uint8 public dataMarketCount;
-    mapping(uint8 dataMarketId => address dataMarketAddress) public dataMarketIdToAddress;
+    uint256 public dataMarketCount;
+    mapping(uint256 dataMarketId => address dataMarketAddress) public dataMarketIdToAddress;
     mapping(address => DataMarketInfo) public dataMarkets; 
     mapping(address => UserInfo) public userInfo;
 
@@ -85,10 +85,16 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param initialOwner The address of the initial owner of the contract
      */
     function initialize(
-        address initialOwner
+        address initialOwner,
+        address _snapshotterState,
+        address _dataMarketFactory
     ) initializer public {
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
+        require(_snapshotterState != address(0), "E45");
+        require(_dataMarketFactory != address(0), "E45");
+        snapshotterState = PowerloomNodes(payable(_snapshotterState));
+        dataMarketFactory = DataMarketFactory(_dataMarketFactory);
     }
 
     // receive ETH
@@ -145,6 +151,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param _address The new address of the data market factory
      */
     function updateDataMarketFactory(address _address) external onlyOwner {
+        require(_address != address(0), "E45");
         dataMarketFactory = DataMarketFactory(_address);
     }
 
@@ -153,6 +160,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param _address The new address of the snapshotter state contract
      */
     function updateSnapshotterState(address _address) external onlyOwner {
+        require(_address != address(0), "E45");
         snapshotterState = PowerloomNodes(payable(_address));
     }
 
@@ -245,15 +253,16 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
         address[] calldata _addresses, 
         bool[] calldata _status
     ) external {
-        PowerloomDataMarket.Role ROLE = dataMarket.updateAddresses(role, _addresses, _status);
+        bool changed = dataMarket.updateAddresses(role, _addresses, _status, msg.sender);
         for (uint256 i = 0; i < _addresses.length; i++) {
-            if (ROLE == PowerloomDataMarket.Role.VALIDATOR) {
+            if (changed) {
+                if (role == PowerloomDataMarket.Role.VALIDATOR) {
                 emit ValidatorsUpdated(address(dataMarket), _addresses[i], _status[i]);
-            } else if (ROLE== PowerloomDataMarket.Role.SEQUENCER) {
+                } else if (role== PowerloomDataMarket.Role.SEQUENCER) {
                 emit SequencersUpdated(address(dataMarket), _addresses[i], _status[i]);
-            }
-            else if (ROLE == PowerloomDataMarket.Role.ADMIN) {
-                emit AdminsUpdated(address(dataMarket), _addresses[i], _status[i]);
+                } else if (role == PowerloomDataMarket.Role.ADMIN) {
+                    emit AdminsUpdated(address(dataMarket), _addresses[i], _status[i]);
+                }
             }
         }  
     }
@@ -264,7 +273,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param _minAttestationsForConsensus The new minimum number of attestations for consensus
      */
     function updateMinAttestationsForConsensus(PowerloomDataMarket dataMarket, uint256 _minAttestationsForConsensus) external {
-        dataMarket.updateMinAttestationsForConsensus(_minAttestationsForConsensus);
+        dataMarket.updateMinAttestationsForConsensus(_minAttestationsForConsensus, msg.sender);
     }
 
     /**
@@ -273,7 +282,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param newbatchSubmissionWindow The new batch submission window
      */
     function updateBatchSubmissionWindow(PowerloomDataMarket dataMarket, uint256 newbatchSubmissionWindow) external {
-        dataMarket.updateBatchSubmissionWindow(newbatchSubmissionWindow);
+        dataMarket.updateBatchSubmissionWindow(newbatchSubmissionWindow, msg.sender);
     }
 
     /**
@@ -282,7 +291,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param newsnapshotSubmissionWindow The new snapshot submission window
      */
     function updateSnapshotSubmissionWindow(PowerloomDataMarket dataMarket, uint256 newsnapshotSubmissionWindow) external {
-        dataMarket.updateSnapshotSubmissionWindow(newsnapshotSubmissionWindow);
+        dataMarket.updateSnapshotSubmissionWindow(newsnapshotSubmissionWindow, msg.sender);
     }
 
     /**
@@ -291,7 +300,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param newattestationSubmissionWindow The new attestation submission window
      */
     function updateAttestationSubmissionWindow(PowerloomDataMarket dataMarket, uint256 newattestationSubmissionWindow) external{
-        dataMarket.updateAttestationSubmissionWindow(newattestationSubmissionWindow);
+        dataMarket.updateAttestationSubmissionWindow(newattestationSubmissionWindow, msg.sender);
     }
 
     /**
@@ -302,7 +311,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param snapshotCount The number of snapshots
      */
     function loadSlotSubmissions(PowerloomDataMarket dataMarket, uint256 slotId, uint256 dayId, uint256 snapshotCount) external {
-        dataMarket.loadSlotSubmissions(slotId, dayId, snapshotCount);
+        dataMarket.loadSlotSubmissions(slotId, dayId, snapshotCount, msg.sender);
     }
 
     /**
@@ -311,7 +320,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param _dayCounter The day counter to set
      */
     function loadCurrentDay(PowerloomDataMarket dataMarket, uint256 _dayCounter) external {
-        dataMarket.loadCurrentDay(_dayCounter);
+        dataMarket.loadCurrentDay(_dayCounter, msg.sender);
     }
 
 
@@ -390,7 +399,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param _address The new epoch manager address
      */
     function updateEpochManager(PowerloomDataMarket dataMarket, address _address) external {
-        dataMarket.updateEpochManager(_address);
+        dataMarket.updateEpochManager(_address, msg.sender);
     }
 
     /**
@@ -477,8 +486,13 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param end The end of the epoch to skip
      */
     function forceSkipEpoch(PowerloomDataMarket dataMarket, uint256 begin, uint256 end) external {
-        dataMarket.forceSkipEpoch(begin, end);
-        emit EpochReleased(address(dataMarket), dataMarket.epochIdCounter(), begin, end, block.timestamp);
+        (bool DAY_STARTED, bool EPOCH_RELEASED) = dataMarket.forceSkipEpoch(begin, end, msg.sender);
+        if(DAY_STARTED){
+            emit DayStartedEvent(address(dataMarket), dataMarket.dayCounter(), block.timestamp);
+        }
+        if(EPOCH_RELEASED){
+            emit EpochReleased(address(dataMarket), dataMarket.epochIdCounter(), begin, end, block.timestamp);
+        }
     }
 
     /**
@@ -488,7 +502,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param end The end of the epoch to release
      */
     function releaseEpoch(PowerloomDataMarket dataMarket, uint256 begin, uint256 end) external {
-        (bool DAY_STARTED, bool EPOCH_RELEASED) = dataMarket.releaseEpoch(begin, end);
+        (bool DAY_STARTED, bool EPOCH_RELEASED) = dataMarket.releaseEpoch(begin, end, msg.sender);
         if(DAY_STARTED){
             emit DayStartedEvent(address(dataMarket), dataMarket.dayCounter(), block.timestamp);
         }
@@ -524,7 +538,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param _sequencerId The new sequencer ID
      */
     function setSequencerId(PowerloomDataMarket dataMarket, string memory _sequencerId) public {
-        dataMarket.setSequencerId(_sequencerId);
+        dataMarket.setSequencerId(_sequencerId, msg.sender);
     }
 
     /**
@@ -606,7 +620,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param dataMarket The data market contract
      */
     function toggleRewards(PowerloomDataMarket dataMarket) external {
-        dataMarket.toggleRewards();
+        dataMarket.toggleRewards(msg.sender);
     }
 
     /**
@@ -633,16 +647,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param newRewardPoolSize The new reward pool size
      */
     function updateRewardPoolSize(PowerloomDataMarket dataMarket, uint256 newRewardPoolSize) external {
-        dataMarket.updateRewardPoolSize(newRewardPoolSize);
-    }
-
-    /**
-     * @dev Updates the day size of a data market
-     * @param dataMarket The data market contract
-     * @param newDaySize The new day size
-     */
-    function updateDaySize(PowerloomDataMarket dataMarket, uint256 newDaySize) external {
-        dataMarket.updateDaySize(newDaySize);
+        dataMarket.updateRewardPoolSize(newRewardPoolSize, msg.sender);
     }
 
     /**
@@ -660,7 +665,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param _dailySnapshotQuota The new daily snapshot quota
      */
     function updateDailySnapshotQuota(PowerloomDataMarket dataMarket, uint256 _dailySnapshotQuota) external {
-        dataMarket.updateDailySnapshotQuota(_dailySnapshotQuota);
+        dataMarket.updateDailySnapshotQuota(_dailySnapshotQuota, msg.sender);
     }
 
     /**
@@ -731,11 +736,11 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
         uint256 eligibleNodes
     ) external {
         if (eligibleNodes != 0) {
-            dataMarket.updateEligibleNodesForDay(day, eligibleNodes);
+            dataMarket.updateEligibleNodesForDay(day, eligibleNodes, msg.sender);
         }
         // Iterate through all provided slots
         for (uint i = 0; i < slotIds.length; i++) {
-            bool status = dataMarket.updateRewards(slotIds[i], submissionsList[i], day);
+            bool status = dataMarket.updateRewards(slotIds[i], submissionsList[i], day, msg.sender);
             if(status){
                 address slotOwner = snapshotterState.nodeIdToOwner(slotIds[i]);
                 (address snapshotterAddress,,,,,,,,,) = snapshotterState.nodeInfo(slotIds[i]);
@@ -762,7 +767,9 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
         require(rewards > 0, "No rewards to claim");
         user.totalClaimed += rewards;
         user.lastClaimed = block.timestamp;
-        payable(_user).transfer(rewards);
+        
+        (bool success, ) = payable(_user).call{value: rewards}("");
+        require(success, "Failed to send rewards");
         emit RewardsClaimed(_user, rewards, block.timestamp);
     }
 
@@ -832,7 +839,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @param epochId The ID of the epoch
      * @return string The CID of the snapshot with max attestations
      */
-    function maxSnapshotsCid(PowerloomDataMarket dataMarket, string memory projectId, uint256 epochId) public view returns (string memory) {
+    function maxSnapshotsCid(PowerloomDataMarket dataMarket, string memory projectId, uint256 epochId) public view returns (string memory, PowerloomDataMarket.SnapshotStatus) {
         return dataMarket.maxSnapshotsCid(projectId, epochId);
     }
 
@@ -854,7 +861,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
         string[] memory snapshotCids,
         bytes32 finalizedCidsRootHash
     ) external {
-        (bool SNAPSHOT_BATCH_SUBMITTED, bool DELAYED_BATCH_SUBMITTED) = dataMarket.submitSubmissionBatch(batchCid, epochId, projectIds, snapshotCids, finalizedCidsRootHash);
+        (bool SNAPSHOT_BATCH_SUBMITTED, bool DELAYED_BATCH_SUBMITTED) = dataMarket.submitSubmissionBatch(batchCid, epochId, projectIds, snapshotCids, finalizedCidsRootHash, msg.sender);
         if(SNAPSHOT_BATCH_SUBMITTED){
             emit SnapshotBatchSubmitted(address(dataMarket), batchCid, epochId, block.timestamp);        
         }
@@ -884,12 +891,14 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @notice Emits TriggerBatchResubmission or SnapshotBatchFinalized events based on the result
      */
     function forceCompleteConsensusAttestations(PowerloomDataMarket dataMarket, string memory batchCid, uint256 epochId) public {
-        bool TRIGGER_BATCH_RESUBMISSION = dataMarket.forceCompleteConsensusAttestations(batchCid, epochId);
+        (bool TRIGGER_BATCH_RESUBMISSION, bool BATCH_FINALIZED) = dataMarket.forceCompleteConsensusAttestations(batchCid, epochId, msg.sender);
         if(TRIGGER_BATCH_RESUBMISSION){
             emit TriggerBatchResubmission(address(dataMarket), epochId, batchCid, block.timestamp);
         } else {
-            _finalizeSnapshotBatchEvents(dataMarket, batchCid, epochId);
-            emit SnapshotBatchFinalized(address(dataMarket), epochId, batchCid, block.timestamp);
+            if(BATCH_FINALIZED){
+                _finalizeSnapshotBatchEvents(dataMarket, batchCid, epochId);
+                emit SnapshotBatchFinalized(address(dataMarket), epochId, batchCid, block.timestamp);
+            }
         }
     }
 
@@ -948,7 +957,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
         uint256 epochId,
         bytes32 finalizedCidsRootHash
     ) external {
-        bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED = dataMarket.submitBatchAttestation(batchCid, epochId, finalizedCidsRootHash);
+        bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED = dataMarket.submitBatchAttestation(batchCid, epochId, finalizedCidsRootHash, msg.sender);
         if(SNAPSHOT_BATCH_ATTESTATION_SUBMITTED) {
             emit SnapshotBatchAttestationSubmitted(address(dataMarket), batchCid, epochId, block.timestamp, msg.sender);
         } else {
@@ -963,7 +972,7 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @notice Emits a BatchSubmissionsCompleted event
      */
     function endBatchSubmissions(PowerloomDataMarket dataMarket, uint256 epochId) public {
-        dataMarket.endBatchSubmissions(epochId);
+        dataMarket.endBatchSubmissions(epochId, msg.sender);
         emit BatchSubmissionsCompleted(address(dataMarket), epochId, block.timestamp);
     }
 
@@ -978,21 +987,24 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      * @notice This function is called internally to finalize snapshot events and emit relevant events
      */
     function _finalizeSnapshotBatchEvents(PowerloomDataMarket dataMarket, string memory batchCid, uint256 epochId) private {
-        // Emit events for divergent validators
-        for (uint i = 0; i < dataMarket.batchCidDivergentValidatorsLen(batchCid); i++) {
-                emit ValidatorAttestationsInvalidated(address(dataMarket), epochId, batchCid, dataMarket.batchCidDivergentValidators(batchCid, i), block.timestamp);
+        // Store loop bounds in memory
+        uint256 divergentValidatorsLen = dataMarket.batchCidDivergentValidatorsLen(batchCid);
+        uint256 projectsLen = dataMarket.batchCidToProjectsLen(batchCid);
+        
+        // Emit events for divergent validators    
+        for (uint256 i = 0; i < divergentValidatorsLen; i++) {
+            emit ValidatorAttestationsInvalidated(address(dataMarket), epochId, batchCid, dataMarket.batchCidDivergentValidators(batchCid, i), block.timestamp);
         } 
+        
         (,,uint256 epochEnd) = dataMarket.epochInfo(epochId);
 
         // Emit SnapshotFinalized events for each project in the batch
-        for (uint i = 0; i < dataMarket.batchCidToProjectsLen(batchCid); i++) {
-            for (uint j = 0; j < dataMarket.batchCidToProjectsLen(batchCid); j++) {
-                string memory project = dataMarket.batchCidToProjects(batchCid, j);
+        for (uint256 i = 0; i < projectsLen; i++) {
+            string memory project = dataMarket.batchCidToProjects(batchCid, i);
 
-                (,string memory projectCid,) = dataMarket.snapshotStatus(project, epochId);
-                if (bytes(projectCid).length > 0) {
-                    emit SnapshotFinalized(address(dataMarket), epochId, epochEnd, project, projectCid, block.timestamp);
-                }
+            (,string memory projectCid,) = dataMarket.snapshotStatus(project, epochId);
+            if (bytes(projectCid).length > 0) {
+                emit SnapshotFinalized(address(dataMarket), epochId, epochEnd, project, projectCid, block.timestamp);
             }
         }
     }
@@ -1002,7 +1014,8 @@ contract PowerloomProtocolState is Initializable, OwnableUpgradeable, UUPSUpgrad
      */
     function emergencyWithdraw() public onlyOwner {
         uint256 balance = address(this).balance;
-        payable(msg.sender).transfer(balance);
+        (bool success, ) = payable(msg.sender).call{value: balance}("");
+        require(success, "Failed to send funds");
         emit EmergencyWithdraw(msg.sender, balance);
     }
 
