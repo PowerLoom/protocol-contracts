@@ -14,7 +14,7 @@
  * - ReentrancyGuard: Prevents reentrancy attacks
  */
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.24;
 
 // Import OpenZeppelin contracts
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
@@ -674,29 +674,23 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
      */
     function claimableNodeTokens(uint256 _nodeId) public view returns (uint256 _claimableNodeTokens) {
         NodeInfo memory node = nodeInfo[_nodeId];
+        require(node.burnedOn > 0, "Need to Burn the Node First");
+        require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
 
         if (node.isLegacy){
             if (node.isKyced){
-                require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");
-                require(node.burnedOn > 0, "Need to Burn the Node First");
-                
                 _claimableNodeTokens = claimableLegacyNodeTokens(_nodeId);
             }
             else{
-                require(node.burnedOn > 0, "Need to Burn the Node First");
                 require(block.timestamp >= legacyNodeVestingStart + legacyNodeNonKycedCooldown, "Legacy node non-kyced cooldown not yet met");
                 require(node.claimedTokens == false, "Tokens already claimed");
-                require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
-
                 _claimableNodeTokens = node.nodePrice;
 
             }
         }
         else{
-            require(node.burnedOn > 0, "Need to Burn the Node First");
             require(block.timestamp >= node.burnedOn + snapshotterTokenClaimCooldown, "Snapshotter token claim cooldown not yet met");
             require(node.claimedTokens == false, "Tokens already claimed");
-            require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
 
             _claimableNodeTokens = node.nodePrice;
         }
@@ -728,10 +722,6 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
                 emit LegacyNodeTokensClaimed(msg.sender, _nodeId, _claimableNodeTokens);
             }
             else{
-                require(node.burnedOn > 0, "Need to Burn the Node First");
-                require(node.claimedTokens == false, "Tokens already claimed");
-                require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
-
                 node.claimedTokens = true;
                 (bool success, ) = payable(msg.sender).call{value: _claimableNodeTokens}("");
                 require(success, "Failed to send legacy node tokens");
@@ -739,10 +729,6 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
             }
         }
         else{
-            require(node.burnedOn > 0, "Need to Burn the Node First");
-            require(block.timestamp >= node.burnedOn + snapshotterTokenClaimCooldown, "Snapshotter token claim cooldown not yet met");
-            require(node.claimedTokens == false, "Tokens already claimed");
-            require(nodeIdToOwner[_nodeId] == msg.sender, "Only the owner can claim their own tokens");       
 
             node.claimedTokens = true;
             (bool success, ) = payable(msg.sender).call{value: _claimableNodeTokens}("");
@@ -751,12 +737,6 @@ contract PowerloomNodes is Initializable, ERC1155Upgradeable, Ownable2StepUpgrad
         }
     }
 
-    /**
-     * @dev Allows deposit of ETH into contract
-     */
-    function deposit() public payable onlyOwner {
-        emit Deposit(msg.sender, msg.value);
-    }
 
     /**
      * @dev Allows the owner to withdraw all funds from the contract in case of emergency

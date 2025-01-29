@@ -17,11 +17,6 @@ describe("PowerloomNodes", function () {
     async function deployContractsFixture() {
         [owner, admin, user1, user2, user3] = await ethers.getSigners();
 
-        // Deploy ProtocolState contract (mock or actual implementation)
-        const ProtocolState = await ethers.getContractFactory("PowerloomProtocolState");
-        protocolState = await upgrades.deployProxy(ProtocolState, [owner.address]);
-        await protocolState.waitForDeployment();
-
         // Deploy PowerloomNodes contract
         const PowerloomNodes = await ethers.getContractFactory("PowerloomNodes");
         powerloomNodes = await upgrades.deployProxy(PowerloomNodes, [
@@ -36,7 +31,11 @@ describe("PowerloomNodes", function () {
         const dataMarketFactory = await DataMarketFactory.deploy();
         await dataMarketFactory.waitForDeployment();
 
-        await protocolState.updateDataMarketFactory(await dataMarketFactory.getAddress());
+        // Deploy ProtocolState contract (mock or actual implementation)
+        const ProtocolState = await ethers.getContractFactory("PowerloomProtocolState");
+        protocolState = await upgrades.deployProxy(ProtocolState, [owner.address, powerloomNodes.target, dataMarketFactory.target]);
+        await protocolState.waitForDeployment();
+        
 
         const dataMarketTx = await protocolState.createDataMarket(owner.address, 1, 31337, 20000, false);
         const receipt = await dataMarketTx.wait();
@@ -357,8 +356,14 @@ describe("PowerloomNodes", function () {
         const nodeInfo = await powerloomNodes.nodeInfo(nodeId);
         expect(nodeInfo.active).to.be.true;
 
+        // send ETH to the contract
+        await ethers.provider.send("eth_sendTransaction", [{
+            from: owner.address,
+            to: await powerloomNodes.getAddress(),
+            value: NODE_PRICE.toString()
+        }]);
+
         // Burn the node
-        await powerloomNodes.connect(owner).deposit({ value: NODE_PRICE });
         await powerloomNodes.connect(user1).burnNode(nodeId);
 
         // Check if the node is no longer active
@@ -783,7 +788,13 @@ describe("PowerloomNodes", function () {
             // Mint a legacy node
             await powerloomNodes.connect(owner).adminMintLegacyNodes(user1.address, 1, true);
             const initialClaim = (BigInt(nodeValue) * BigInt(initialClaimPercentage)) / 1000000n;
-            await powerloomNodes.connect(owner).deposit({ value: initialClaim });
+
+            // send ETH to the contract
+            await ethers.provider.send("eth_sendTransaction", [{
+                from: owner.address,
+                to: await powerloomNodes.getAddress(),
+                value: initialClaim.toString()
+            }]);
 
             // Burn the node to start vesting
             await time.increaseTo(vestingStart);
@@ -819,7 +830,12 @@ describe("PowerloomNodes", function () {
             const nodeId = 1;
             await powerloomNodes.connect(owner).adminMintLegacyNodes(user1.address, nodeId, true);
             const initialClaim = (BigInt(nodeValue - sentOnL1) * BigInt(initialClaimPercentage)) / 1000000n;
-            await powerloomNodes.connect(owner).deposit({ value: initialClaim });
+            // send ETH to the contract
+            await ethers.provider.send("eth_sendTransaction", [{
+                from: owner.address,
+                to: await powerloomNodes.getAddress(),
+                value: initialClaim.toString()
+            }]);
 
             // Burn the node to start vesting
             await time.increaseTo(vestingStart);
@@ -832,7 +848,12 @@ describe("PowerloomNodes", function () {
             // Should not send claim if node is not kyced
             const nodeId2 = 2;
             await powerloomNodes.connect(owner).adminMintLegacyNodes(user1.address, nodeId2, false);
-            await powerloomNodes.connect(owner).deposit({ value: initialClaim });
+            // send ETH to the contract
+            await ethers.provider.send("eth_sendTransaction", [{
+                from: owner.address,
+                to: await powerloomNodes.getAddress(),
+                value: initialClaim.toString()
+            }]);
             await expect(powerloomNodes.connect(user1).burnNode(nodeId2)).to.be.revertedWith("Non KYCed legacy nodes cannot be burned before lockup period");
         });
 
@@ -878,7 +899,12 @@ describe("PowerloomNodes", function () {
 
             // Claim tokens successfully
             const balanceBefore = await ethers.provider.getBalance(user1.address);
-            await powerloomNodes.connect(owner).deposit({ value: nodePrice * 2n });
+            // send ETH to the contract
+            await ethers.provider.send("eth_sendTransaction", [{
+                from: owner.address,
+                to: await powerloomNodes.getAddress(),
+                value: (nodePrice * 2n).toString()
+            }]);
             await expect(powerloomNodes.connect(user1).claimNodeTokens(nodeId))
                 .to.emit(powerloomNodes, "SnapshotterTokensClaimed")
                 .withArgs(user1.address, nodeId, nodePrice);
@@ -931,8 +957,13 @@ describe("PowerloomNodes", function () {
             await expect(powerloomNodes.connect(user1).claimNodeTokens(kycedNodeId))
                 .to.be.revertedWith("Need to Burn the Node First");
 
-            await powerloomNodes.deposit({ value: legacyNodeValue*2n });
-                // Burn the node
+            // send ETH to the contract
+            await ethers.provider.send("eth_sendTransaction", [{
+                from: owner.address,
+                to: await powerloomNodes.getAddress(),
+                value: (legacyNodeValue*2n).toString()
+            }]);
+            // Burn the node
             await powerloomNodes.connect(user1).burnNode(kycedNodeId);
 
             // Attempt to claim again immediately (should fail because of vesting)
@@ -998,7 +1029,12 @@ describe("PowerloomNodes", function () {
             const { powerloomNodes, owner, user1 } = await loadFixture(deployContractsFixture);
             
             const depositAmount = ethers.parseEther("10");
-            await powerloomNodes.connect(owner).deposit({ value: depositAmount });
+            // send ETH to the contract
+            await ethers.provider.send("eth_sendTransaction", [{
+                from: owner.address,
+                to: await powerloomNodes.getAddress(),
+                value: depositAmount.toString()
+            }]);
             expect(await ethers.provider.getBalance(powerloomNodes.getAddress())).to.equal(depositAmount);
 
             // Emergency withdraw

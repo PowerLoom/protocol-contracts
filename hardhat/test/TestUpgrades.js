@@ -6,10 +6,19 @@ describe("PowerloomProtocolState Upgrade", function () {
 
     before(async function () {
         [deployer, other] = await ethers.getSigners();
+        // Deploy the storage contract
+        const SnapshotterState = await ethers.getContractFactory("PowerloomNodes");
+        snapshotterState = await upgrades.deployProxy(SnapshotterState, [deployer.address, 10000, "Test"]);
+        await snapshotterState.waitForDeployment();
+
+        // Deploy the DataMarketFactory contract
+        const DataMarketFactory = await ethers.getContractFactory("DataMarketFactory");
+        dataMarketFactory = await DataMarketFactory.deploy();
+        await dataMarketFactory.waitForDeployment();
 
         // Deploy the initial version of the contract
         PowerloomProtocolState = await ethers.getContractFactory("PowerloomProtocolState");
-        protocolStateProxy = await upgrades.deployProxy(PowerloomProtocolState, [deployer.address]);
+        protocolStateProxy = await upgrades.deployProxy(PowerloomProtocolState, [deployer.address, await snapshotterState.getAddress(), await dataMarketFactory.getAddress()]);
         await protocolStateProxy.waitForDeployment();
     });
 
@@ -49,9 +58,19 @@ describe("Data Market Upgrade", function () {
     beforeEach(async function () {
         [owner, other1, other2, other3] = await ethers.getSigners();
 
+        // Deploy the storage contract
+        const SnapshotterState = await ethers.getContractFactory("PowerloomNodes");
+        snapshotterState = await upgrades.deployProxy(SnapshotterState, [owner.address, 10000, "Test"]);
+        await snapshotterState.waitForDeployment();
+
+        // Deploy the DataMarketFactory contract
+        const DataMarketFactory = await ethers.getContractFactory("DataMarketFactory");
+        dataMarketFactory = await DataMarketFactory.deploy();
+        await dataMarketFactory.waitForDeployment();
+        
         // Deploy the protocol state contract
         PowerloomProtocolState = await ethers.getContractFactory("PowerloomProtocolState");
-        protocolStateProxy = await upgrades.deployProxy(PowerloomProtocolState, [owner.address]);
+        protocolStateProxy = await upgrades.deployProxy(PowerloomProtocolState, [owner.address, await snapshotterState.getAddress(), await dataMarketFactory.getAddress()]);
         await protocolStateProxy.waitForDeployment();
 
         // Deploy the PowerloomNodes contract
@@ -64,14 +83,6 @@ describe("Data Market Upgrade", function () {
         await nodesProxy.connect(owner).mintNode(1, { value: 1 });
         await nodesProxy.connect(owner).assignSnapshotterToNode(1, owner.address);
         await protocolStateProxy.updateSnapshotterState(await nodesProxy.getAddress());
-
-        // Deploy the DataMarketFactory contract
-        const DataMarketFactory = await ethers.getContractFactory("DataMarketFactory");
-        dataMarketFactory = await DataMarketFactory.deploy();
-        await dataMarketFactory.waitForDeployment();
-
-        // Set the data market factory address in the protocol state
-        await protocolStateProxy.updateDataMarketFactory(await dataMarketFactory.getAddress());
 
         // Create a data market
         const dataMarketTx = await protocolStateProxy.createDataMarket(

@@ -19,14 +19,9 @@ describe("DataMarket Deployment", function () {
     await dataMarketFactory.waitForDeployment();
 
     ProxyV2 = await ethers.getContractFactory("PowerloomProtocolState");
-    proxyContract = await upgrades.deployProxy(ProxyV2, [deployer.address]);
+    proxyContract = await upgrades.deployProxy(ProxyV2, [deployer.address, await snapshotterState.getAddress(), await dataMarketFactory.getAddress()]);
     await proxyContract.waitForDeployment();
 
-    const storageChangeTx = await proxyContract.updateSnapshotterState(await snapshotterState.getAddress());
-    await storageChangeTx.wait();
-
-    const dmFactoryChangeTx = await proxyContract.updateDataMarketFactory(await dataMarketFactory.getAddress());
-    await dmFactoryChangeTx.wait();
   });
 
   it("should create a DataMarket", async function () {

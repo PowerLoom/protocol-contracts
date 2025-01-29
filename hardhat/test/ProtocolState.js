@@ -58,17 +58,9 @@ describe("PowerloomProtocolState", function () {
 
         // Deploy the proxy contract for PowerloomProtocolState
         const PowerloomProtocolState = await ethers.getContractFactory("PowerloomProtocolState");
-        proxyContract = await upgrades.deployProxy(PowerloomProtocolState, [owner.address]);
+        proxyContract = await upgrades.deployProxy(PowerloomProtocolState, [owner.address, await snapshotterState.getAddress(), await dataMarketFactory.getAddress()]);
         await proxyContract.waitForDeployment();
-
-        // Set the snapshotter state address in the protocol state
-        const storageChangeTx = await proxyContract.updateSnapshotterState(await snapshotterState.getAddress());
-        await storageChangeTx.wait();
-
-        // Set the data market factory address in the protocol state
-        const dmFactoryChangeTx = await proxyContract.updateDataMarketFactory(await dataMarketFactory.getAddress());
-        await dmFactoryChangeTx.wait();
-
+        
         deploymentBlock = await time.latestBlock();
         // Increment deployment block to account for mining on deploy tx
         deploymentBlock++;
@@ -203,16 +195,12 @@ describe("PowerloomProtocolState", function () {
             expect(await dataMarket.protocolState()).to.equal(proxyContract.target);
 
             // Verify initialized state variables
-            expect(await dataMarket.rewardPoolSize()).to.equal(ethers.parseEther("1000000"));
-            expect(await dataMarket.dailySnapshotQuota()).to.equal(50);
+            expect(await dataMarket.dailySnapshotQuota()).to.equal(1000);
             expect(await dataMarket.dayCounter()).to.equal(1);
             expect(await dataMarket.epochIdCounter()).to.equal(0);
             expect(await dataMarket.isInitialized()).to.equal(true);
             expect(await dataMarket.DAY_SIZE()).to.equal(864000000);
-            expect(await dataMarket.rewardsEnabled()).to.equal(true);
-            expect(await dataMarket.snapshotSubmissionWindow()).to.equal(1);
-            expect(await dataMarket.batchSubmissionWindow()).to.equal(1);
-            expect(await dataMarket.attestationSubmissionWindow()).to.equal(1);
+            expect(await dataMarket.rewardsEnabled()).to.equal(false);
             expect(await dataMarket.minAttestationsForConsensus()).to.equal(2);
 
             // Verify epochs in a day calculation
@@ -2196,10 +2184,10 @@ describe("PowerloomProtocolState", function () {
 
             await expect(proxyContract.toggleRewards(dataMarket1.target))
                 .to.not.be.reverted;
-            expect(await proxyContract.rewardsEnabled(dataMarket1.target)).to.be.false;
+            expect(await proxyContract.rewardsEnabled(dataMarket1.target)).to.be.true;
             await expect(proxyContract.toggleRewards(dataMarket1.target))
                 .to.not.be.reverted;
-            expect(await proxyContract.rewardsEnabled(dataMarket1.target)).to.be.true;
+            expect(await proxyContract.rewardsEnabled(dataMarket1.target)).to.be.false;
         });
 
         it("Should successfully get and update slot related data", async function () {

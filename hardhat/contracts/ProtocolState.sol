@@ -85,10 +85,16 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @param initialOwner The address of the initial owner of the contract
      */
     function initialize(
-        address initialOwner
+        address initialOwner,
+        address _snapshotterState,
+        address _dataMarketFactory
     ) initializer public {
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
+        require(_snapshotterState != address(0), "E45");
+        require(_dataMarketFactory != address(0), "E45");
+        snapshotterState = PowerloomNodes(payable(_snapshotterState));
+        dataMarketFactory = DataMarketFactory(_dataMarketFactory);
     }
 
     // receive ETH
@@ -247,15 +253,16 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
         address[] calldata _addresses, 
         bool[] calldata _status
     ) external {
-        PowerloomDataMarket.Role ROLE = dataMarket.updateAddresses(role, _addresses, _status, msg.sender);
+        bool changed = dataMarket.updateAddresses(role, _addresses, _status, msg.sender);
         for (uint256 i = 0; i < _addresses.length; i++) {
-            if (ROLE == PowerloomDataMarket.Role.VALIDATOR) {
+            if (changed) {
+                if (role == PowerloomDataMarket.Role.VALIDATOR) {
                 emit ValidatorsUpdated(address(dataMarket), _addresses[i], _status[i]);
-            } else if (ROLE== PowerloomDataMarket.Role.SEQUENCER) {
+                } else if (role== PowerloomDataMarket.Role.SEQUENCER) {
                 emit SequencersUpdated(address(dataMarket), _addresses[i], _status[i]);
-            }
-            else if (ROLE == PowerloomDataMarket.Role.ADMIN) {
-                emit AdminsUpdated(address(dataMarket), _addresses[i], _status[i]);
+                } else if (role == PowerloomDataMarket.Role.ADMIN) {
+                    emit AdminsUpdated(address(dataMarket), _addresses[i], _status[i]);
+                }
             }
         }  
     }
@@ -980,14 +987,19 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
      * @notice This function is called internally to finalize snapshot events and emit relevant events
      */
     function _finalizeSnapshotBatchEvents(PowerloomDataMarket dataMarket, string memory batchCid, uint256 epochId) private {
-        // Emit events for divergent validators
-        for (uint i = 0; i < dataMarket.batchCidDivergentValidatorsLen(batchCid); i++) {
-                emit ValidatorAttestationsInvalidated(address(dataMarket), epochId, batchCid, dataMarket.batchCidDivergentValidators(batchCid, i), block.timestamp);
+        // Store loop bounds in memory
+        uint256 divergentValidatorsLen = dataMarket.batchCidDivergentValidatorsLen(batchCid);
+        uint256 projectsLen = dataMarket.batchCidToProjectsLen(batchCid);
+        
+        // Emit events for divergent validators    
+        for (uint256 i = 0; i < divergentValidatorsLen; i++) {
+            emit ValidatorAttestationsInvalidated(address(dataMarket), epochId, batchCid, dataMarket.batchCidDivergentValidators(batchCid, i), block.timestamp);
         } 
+        
         (,,uint256 epochEnd) = dataMarket.epochInfo(epochId);
 
         // Emit SnapshotFinalized events for each project in the batch
-        for (uint i = 0; i < dataMarket.batchCidToProjectsLen(batchCid); i++) {
+        for (uint256 i = 0; i < projectsLen; i++) {
             string memory project = dataMarket.batchCidToProjects(batchCid, i);
 
             (,string memory projectCid,) = dataMarket.snapshotStatus(project, epochId);

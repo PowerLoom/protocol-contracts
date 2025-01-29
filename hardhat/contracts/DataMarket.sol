@@ -311,16 +311,9 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
         require(initialOwner != address(0), "E45");
         
         // Initialize state variables that were previously initialized at declaration
-        rewardPoolSize = 1_000_000e18;
-        dailySnapshotQuota = 50;
+        dailySnapshotQuota = 1000;
         dayCounter = 1;
-        epochIdCounter = 0;
-        isInitialized = false;
         DAY_SIZE = 864000000; // 24 hours in blocks
-        rewardsEnabled = true;
-        snapshotSubmissionWindow = 1;
-        batchSubmissionWindow = 1;
-        attestationSubmissionWindow = 1;
         minAttestationsForConsensus = 2;
         
         // Initialize parameters from constructor
@@ -473,14 +466,14 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
      * @param role The role to update addresses for
      * @param _addresses Array of addresses to update
      * @param _status Array of corresponding status values
-     * @return ROLE The updated role
+     * @return changed Boolean indicating if the role was updated
      */
     function updateAddresses(
         Role role,
         address[] calldata _addresses,
         bool[] calldata _status,
         address _sender
-    ) external onlyProtocolState returns (Role ROLE) {
+    ) external onlyProtocolState returns (bool changed) {
         require(isOwner(_sender), "E03");
         require(
             _addresses.length == _status.length,
@@ -490,7 +483,6 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
         EnumerableSet.AddressSet storage set = _getAddressSet(role);
 
         for (uint256 i = 0; i < _addresses.length; i++) {
-            bool changed = false;
             if (_status[i]) {
                 changed = set.add(_addresses[i]);
             } else {
@@ -498,13 +490,10 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
             }
             if (changed) {
                 if (role == Role.VALIDATOR) {
-                    ROLE = Role.VALIDATOR;
                     emit ValidatorsUpdated(_addresses[i], _status[i]);
                 } else if (role == Role.SEQUENCER) {
-                    ROLE = Role.SEQUENCER;
                     emit SequencersUpdated(_addresses[i], _status[i]);
                 } else {
-                    ROLE = Role.ADMIN;
                     emit AdminsUpdated(_addresses[i], _status[i]);
                 }
             }
@@ -1073,12 +1062,15 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
         string memory batchCid,
         uint256 epochId
     ) public view returns (bool) {
+        bool isAttested = batchCidAttestationStatus[batchCid];
+        bool isSubmissionWindowOver = epochInfo[epochId].blocknumber + attestationSubmissionWindow < block.number;
+        bool hasRequiredAttestations = maxAttestationsCount[batchCid] >= minAttestationsForConsensus;
+        bool hasValidRootHash = bytes32(maxAttestationFinalizedRootHash[batchCid]) != bytes32(0);
         if (
-            !batchCidAttestationStatus[batchCid] &&
-            epochInfo[epochId].blocknumber + attestationSubmissionWindow <
-            block.number &&
-            maxAttestationsCount[batchCid] >= minAttestationsForConsensus &&
-            bytes32(maxAttestationFinalizedRootHash[batchCid]) != bytes32(0)
+            !isAttested &&
+            isSubmissionWindowOver &&
+            hasRequiredAttestations &&
+            hasValidRootHash
         ) {
             return true;
         }
