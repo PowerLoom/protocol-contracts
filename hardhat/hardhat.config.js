@@ -4,6 +4,7 @@ require('hardhat-gas-reporter');
 require("@nomicfoundation/hardhat-toolbox");
 require('@openzeppelin/hardhat-upgrades');
 require("@nomicfoundation/hardhat-verify");
+require('solidity-coverage');
 require('dotenv').config()
 
 /** @type import('hardhat/config').HardhatUserConfig */

@@ -224,6 +224,7 @@ describe("PowerloomProtocolState", function () {
             expect(dataMarketInfo.enabled).to.equal(true);
             expect(dataMarketInfo.dataMarketAddress).to.equal(dataMarketAddress);
             expect(dataMarketInfo.createdAt).to.be.gt(0);
+            expect(await proxyContract.DAY_SIZE(dataMarketAddress)).to.equal(864000000);
         });
     });
 
