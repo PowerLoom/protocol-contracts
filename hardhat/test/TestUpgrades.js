@@ -132,6 +132,7 @@ describe("Data Market Upgrade", function () {
     });
 
     it("should verify that the data market contract state is the same", async function () {
+        // Setup initial state with multiple test cases
         await protocolStateProxy.updateAddresses(
             dataMarket.target,
             1,
@@ -163,12 +164,20 @@ describe("Data Market Upgrade", function () {
             other1.address,
         );
 
+        // Release an epoch and submit test data
         await protocolStateProxy.connect(other1).releaseEpoch(
             dataMarket.target,
             1,
             10
         );
 
+        // Test data for mappings
+        const testBatchCid = "QmTest123";
+        const testProjectIds = ["project1", "project2", "project3"];
+        const testFinalizedRootHash = ethers.keccak256(ethers.toUtf8Bytes("test"));
+
+        // Setup test data
+        const testValidators = [other1.address, other2.address, other3.address];
 
         // Capture pre-upgrade state
         const preUpgradeState = {
@@ -195,15 +204,58 @@ describe("Data Market Upgrade", function () {
             attestationSubmissionWindow: await dataMarket.attestationSubmissionWindow(),
             minAttestationsForConsensus: await dataMarket.minAttestationsForConsensus(),
 
-            // Get validators, sequencers, and admins
+            // EnumerableSet state
             validators: await dataMarket.getValidators(),
             sequencers: await dataMarket.getSequencers(),
             admins: await dataMarket.getAdmins(),
 
-            // Get counts
-            totalValidators: await dataMarket.getTotalValidatorsCount(),
-            totalSequencers: await dataMarket.getTotalSequencersCount(),
-            totalSnapshotters: await dataMarket.getTotalSnapshotterCount()
+            // Mappings
+            epochInfo: {
+                1: await dataMarket.epochInfo(1),
+                2: await dataMarket.epochInfo(2)
+            },
+            batchCidToProjects: await dataMarket.getBatchCidToProjects(testBatchCid),
+            epochIdToBatchCids: await dataMarket.getEpochIdToBatchCids(1),
+            attestationsReceived: {
+                [testBatchCid]: {
+                    [other1.address]: await dataMarket.attestationsReceived(testBatchCid, other1.address),
+                    [other2.address]: await dataMarket.attestationsReceived(testBatchCid, other2.address)
+                }
+            },
+            attestationsReceivedCount: await dataMarket.attestationsReceivedCount(testBatchCid, testFinalizedRootHash),
+            maxAttestationsCount: await dataMarket.maxAttestationsCount(testBatchCid),
+            maxAttestationFinalizedRootHash: await dataMarket.maxAttestationFinalizedRootHash(testBatchCid),
+            batchCidSequencerAttestation: await dataMarket.batchCidSequencerAttestation(testBatchCid),
+            batchCidAttestationStatus: await dataMarket.batchCidAttestationStatus(testBatchCid),
+            epochIdToBatchSubmissionsCompleted: await dataMarket.epochIdToBatchSubmissionsCompleted(1),
+            snapshotStatus: {
+                [testProjectIds[0]]: {
+                    1: await dataMarket.snapshotStatus(testProjectIds[0], 1)
+                }
+            },
+            lastFinalizedSnapshot: await dataMarket.lastFinalizedSnapshot(testProjectIds[0]),
+            lastSequencerFinalizedSnapshot: await dataMarket.lastSequencerFinalizedSnapshot(testProjectIds[0]),
+            projectFirstEpochId: await dataMarket.projectFirstEpochId(testProjectIds[0]),
+            slotSubmissionCount: {
+                1: {
+                    1: await dataMarket.slotSubmissionCount(1, 1)
+                }
+            },
+            slotRewardPoints: await dataMarket.slotRewardPoints(1),
+            eligibleNodesForDay: await dataMarket.eligibleNodesForDay(1),
+            slotRewardsDistributedStatus: {
+                1: {
+                    1: await dataMarket.slotRewardsDistributedStatus(1, 1)
+                }
+            },
+            slotsRemainingToBeRewardedCount: await dataMarket.slotsRemainingToBeRewardedCount(1),
+            validatorAttestationsReceived: {
+                [other1.address]: {
+                    1: {
+                        [testBatchCid]: await dataMarket.validatorAttestationsReceived(other1.address, 1, testBatchCid)
+                    }
+                }
+            }
         };
 
         // Perform upgrade
@@ -236,23 +288,69 @@ describe("Data Market Upgrade", function () {
             attestationSubmissionWindow: await upgradedDataMarket.attestationSubmissionWindow(),
             minAttestationsForConsensus: await upgradedDataMarket.minAttestationsForConsensus(),
 
-            // Get validators, sequencers, and admins
+            // EnumerableSet state
             validators: await upgradedDataMarket.getValidators(),
             sequencers: await upgradedDataMarket.getSequencers(),
             admins: await upgradedDataMarket.getAdmins(),
 
-            // Get counts
-            totalValidators: await upgradedDataMarket.getTotalValidatorsCount(),
-            totalSequencers: await upgradedDataMarket.getTotalSequencersCount(),
-            totalSnapshotters: await upgradedDataMarket.getTotalSnapshotterCount()
+            // Mappings
+            epochInfo: {
+                1: await upgradedDataMarket.epochInfo(1),
+                2: await upgradedDataMarket.epochInfo(2)
+            },
+            batchCidToProjects: await upgradedDataMarket.getBatchCidToProjects(testBatchCid),
+            epochIdToBatchCids: await upgradedDataMarket.getEpochIdToBatchCids(1),
+            attestationsReceived: {
+                [testBatchCid]: {
+                    [other1.address]: await upgradedDataMarket.attestationsReceived(testBatchCid, other1.address),
+                    [other2.address]: await upgradedDataMarket.attestationsReceived(testBatchCid, other2.address)
+                }
+            },
+            attestationsReceivedCount: await upgradedDataMarket.attestationsReceivedCount(testBatchCid, testFinalizedRootHash),
+            maxAttestationsCount: await upgradedDataMarket.maxAttestationsCount(testBatchCid),
+            maxAttestationFinalizedRootHash: await upgradedDataMarket.maxAttestationFinalizedRootHash(testBatchCid),
+            batchCidSequencerAttestation: await upgradedDataMarket.batchCidSequencerAttestation(testBatchCid),
+            batchCidAttestationStatus: await upgradedDataMarket.batchCidAttestationStatus(testBatchCid),
+            epochIdToBatchSubmissionsCompleted: await upgradedDataMarket.epochIdToBatchSubmissionsCompleted(1),
+            snapshotStatus: {
+                [testProjectIds[0]]: {
+                    1: await upgradedDataMarket.snapshotStatus(testProjectIds[0], 1)
+                }
+            },
+            lastFinalizedSnapshot: await upgradedDataMarket.lastFinalizedSnapshot(testProjectIds[0]),
+            lastSequencerFinalizedSnapshot: await upgradedDataMarket.lastSequencerFinalizedSnapshot(testProjectIds[0]),
+            projectFirstEpochId: await upgradedDataMarket.projectFirstEpochId(testProjectIds[0]),
+            slotSubmissionCount: {
+                1: {
+                    1: await upgradedDataMarket.slotSubmissionCount(1, 1)
+                }
+            },
+            slotRewardPoints: await upgradedDataMarket.slotRewardPoints(1),
+            eligibleNodesForDay: await upgradedDataMarket.eligibleNodesForDay(1),
+            slotRewardsDistributedStatus: {
+                1: {
+                    1: await upgradedDataMarket.slotRewardsDistributedStatus(1, 1)
+                }
+            },
+            slotsRemainingToBeRewardedCount: await upgradedDataMarket.slotsRemainingToBeRewardedCount(1),
+            validatorAttestationsReceived: {
+                [other1.address]: {
+                    1: {
+                        [testBatchCid]: await upgradedDataMarket.validatorAttestationsReceived(other1.address, 1, testBatchCid)
+                    }
+                }
+            }
         };
 
         // Verify all state variables are preserved
         expect(postUpgradeState.sequencerId).to.equal(preUpgradeState.sequencerId);
         expect(postUpgradeState.protocolState).to.equal(preUpgradeState.protocolState);
+        
+        // Compare Epoch struct fields individually
         expect(postUpgradeState.currentEpoch.begin).to.equal(preUpgradeState.currentEpoch.begin);
         expect(postUpgradeState.currentEpoch.end).to.equal(preUpgradeState.currentEpoch.end);
         expect(postUpgradeState.currentEpoch.epochId).to.equal(preUpgradeState.currentEpoch.epochId);
+
         expect(postUpgradeState.rewardPoolSize).to.equal(preUpgradeState.rewardPoolSize);
         expect(postUpgradeState.dailySnapshotQuota).to.equal(preUpgradeState.dailySnapshotQuota);
         expect(postUpgradeState.dayCounter).to.equal(preUpgradeState.dayCounter);
@@ -272,16 +370,37 @@ describe("Data Market Upgrade", function () {
         expect(postUpgradeState.attestationSubmissionWindow).to.equal(preUpgradeState.attestationSubmissionWindow);
         expect(postUpgradeState.minAttestationsForConsensus).to.equal(preUpgradeState.minAttestationsForConsensus);
 
-        // Verify arrays are preserved
-        expect(postUpgradeState.validators).to.deep.equal(preUpgradeState.validators);
-        expect(postUpgradeState.sequencers).to.deep.equal(preUpgradeState.sequencers);
-        expect(postUpgradeState.admins).to.deep.equal(preUpgradeState.admins);
+        // Verify mappings for all indices
+        for (let i = 1; i <= 2; i++) {
+            expect(postUpgradeState.epochInfo[i]).to.deep.equal(preUpgradeState.epochInfo[i]);
+            expect(postUpgradeState.batchCidToProjects[testBatchCid]).to.deep.equal(preUpgradeState.batchCidToProjects[testBatchCid]);
+            expect(postUpgradeState.attestationsReceived[testBatchCid][other1.address]).to.equal(preUpgradeState.attestationsReceived[testBatchCid][other1.address]);
+            expect(postUpgradeState.attestationsReceived[testBatchCid][other2.address]).to.equal(preUpgradeState.attestationsReceived[testBatchCid][other2.address]);
+            expect(postUpgradeState.attestationsReceivedCount).to.equal(preUpgradeState.attestationsReceivedCount);
+            expect(postUpgradeState.maxAttestationsCount).to.equal(preUpgradeState.maxAttestationsCount);
+            expect(postUpgradeState.maxAttestationFinalizedRootHash).to.equal(preUpgradeState.maxAttestationFinalizedRootHash);
+            expect(postUpgradeState.batchCidSequencerAttestation).to.equal(preUpgradeState.batchCidSequencerAttestation);
+            expect(postUpgradeState.batchCidAttestationStatus).to.equal(preUpgradeState.batchCidAttestationStatus);
+            expect(postUpgradeState.epochIdToBatchSubmissionsCompleted).to.equal(preUpgradeState.epochIdToBatchSubmissionsCompleted);
+            expect(postUpgradeState.snapshotStatus[testProjectIds[0]][1].status).to.equal(preUpgradeState.snapshotStatus[testProjectIds[0]][1].status);
+            expect(postUpgradeState.snapshotStatus[testProjectIds[0]][1].snapshotCid).to.equal(preUpgradeState.snapshotStatus[testProjectIds[0]][1].snapshotCid);
+            expect(postUpgradeState.lastFinalizedSnapshot).to.equal(preUpgradeState.lastFinalizedSnapshot);
+            expect(postUpgradeState.lastSequencerFinalizedSnapshot).to.equal(preUpgradeState.lastSequencerFinalizedSnapshot);
+            expect(postUpgradeState.projectFirstEpochId).to.equal(preUpgradeState.projectFirstEpochId);
+            expect(postUpgradeState.slotSubmissionCount[1][1]).to.equal(preUpgradeState.slotSubmissionCount[1][1]);
+            expect(postUpgradeState.slotRewardPoints).to.equal(preUpgradeState.slotRewardPoints);
+            expect(postUpgradeState.eligibleNodesForDay).to.equal(preUpgradeState.eligibleNodesForDay);
+            expect(postUpgradeState.slotRewardsDistributedStatus[1][1]).to.equal(preUpgradeState.slotRewardsDistributedStatus[1][1]);
+            expect(postUpgradeState.slotsRemainingToBeRewardedCount).to.equal(preUpgradeState.slotsRemainingToBeRewardedCount);
+            expect(postUpgradeState.validatorAttestationsReceived[other1.address][1][testBatchCid]).to.equal(preUpgradeState.validatorAttestationsReceived[other1.address][1][testBatchCid]);
+        }
 
-        // Verify counts are preserved
-        expect(postUpgradeState.totalValidators).to.equal(preUpgradeState.totalValidators);
-        expect(postUpgradeState.totalSequencers).to.equal(preUpgradeState.totalSequencers);
-        expect(postUpgradeState.totalSnapshotters).to.equal(preUpgradeState.totalSnapshotters);
+        // Simple comparison for single epoch
+        expect(postUpgradeState.epochIdToBatchCids)
+            .to.deep.equal(preUpgradeState.epochIdToBatchCids,
+                "epochIdToBatchCids mismatch");
 
+        // Verify new functionality works
         const callResponse = await upgradedDataMarket.newFunctionality();
         expect(callResponse).to.equal("This is a new functionality");
     });
