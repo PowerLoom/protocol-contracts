@@ -829,7 +829,7 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
                 snapshotStatus[projectIds[i]][epochId].status = SnapshotStatus.PENDING;
                 snapshotStatus[projectIds[i]][epochId].snapshotCid = snapshotCids[i];
                 snapshotStatus[projectIds[i]][epochId].timestamp = block.timestamp;
-                // setting projectFirstEpochId before batch attestation
+                // Note: This feature will be disabled when validators are active. The projectFirstEpochId will be set during batch finalization.
                 if (projectFirstEpochId[projectIds[i]] == 0) {
                     projectFirstEpochId[projectIds[i]] = epochId;
                 }
@@ -1015,9 +1015,10 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
                     snapshotStatus[batchProjects[j]][epochId].status = SnapshotStatus.FINALIZED;
                     snapshotStatus[batchProjects[j]][epochId].timestamp = block.timestamp;
                     lastFinalizedSnapshot[batchProjects[j]] = epochId;
-                    if (projectFirstEpochId[batchProjects[j]] == 0) {
-                        projectFirstEpochId[batchProjects[j]] = epochId;
-                    }
+                    // Note: This feature will be enabled when validators are active. Currently, projectFirstEpochId is set during batch submission.
+                    // if (projectFirstEpochId[batchProjects[j]] == 0) {
+                    //     projectFirstEpochId[batchProjects[j]] = epochId;
+                    // }
                     emit SnapshotFinalized(
                         epochId,
                         epochInfo[epochId].epochEnd,
