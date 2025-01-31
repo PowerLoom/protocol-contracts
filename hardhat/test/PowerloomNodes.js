@@ -120,6 +120,13 @@ describe("PowerloomNodes", function () {
             .to.be.revertedWithCustomError(powerloomNodes, "OwnableUnauthorizedAccount");
     });
 
+    it("Should allow the owner to set max supply", async function () {
+        const { powerloomNodes, owner } = await loadFixture(deployContractsFixture);
+        await powerloomNodes.connect(owner).updateMaxSupply(10000);
+        expect(await powerloomNodes.MAX_SUPPLY()).to.equal(10000);
+    });
+
+
     it("Should allow the owner to set mint start time", async function () {
         const { powerloomNodes, owner } = await loadFixture(deployContractsFixture);
         const blockTimestamp = (await ethers.provider.getBlock("latest")).timestamp;
@@ -239,6 +246,10 @@ describe("PowerloomNodes", function () {
 
         const nodeIdToOwner = await powerloomNodes.nodeIdToOwner(1);
         expect(nodeIdToOwner).to.equal(user1.address);
+
+        // Check getAllUserNodeIds
+        const userNodeIds = await powerloomNodes.getAllUserNodeIds(user1.address);
+        expect(userNodeIds).to.deep.equal([1]);
     });
 
     it("Should return excess ETH if more than enough power is sent on mint", async function () {
@@ -317,6 +328,14 @@ describe("PowerloomNodes", function () {
         // Check if the node is removed from the user's token list
         const userOwnedNodeIds = await powerloomNodes.getUserOwnedNodeIds(user1.address);
         expect(userOwnedNodeIds).to.not.include(nodeId);
+
+        //check if the node is in the userBurnedNodeIds
+        const userBurnedNodeIds = await powerloomNodes.getUserBurnedNodeIds(user1.address);
+        expect(userBurnedNodeIds).to.include(BigInt(nodeId));
+
+        //check if the node is still in getAllUserNodeIds
+        const allUserNodeIds = await powerloomNodes.getAllUserNodeIds(user1.address);
+        expect(allUserNodeIds).to.include(BigInt(nodeId));
     });
 
     it("Should restrict the burning of a node under certain conditions", async function () {
@@ -663,6 +682,14 @@ describe("PowerloomNodes", function () {
             expect(await powerloomNodes.legacyNodeVestingStart()).to.equal(legacyConfig.legacyNodeVestingStart);
             expect(await powerloomNodes.legacyTokensSentOnL1()).to.equal(legacyConfig.legacyTokensSentOnL1);
             expect(await powerloomNodes.legacyNodeNonKycedCooldown()).to.equal(legacyConfig.legacyNodeNonKycedCooldown);
+
+            //set completeKyc to true for a specific nodeId
+            await powerloomNodes.connect(owner).adminMintLegacyNodes(user1.address, 1, false);
+            const nonKycNodeInfo = await powerloomNodes.nodeInfo(1);
+            expect(nonKycNodeInfo.isKyced).to.equal(false);
+            await powerloomNodes.connect(owner).completeKyc(1);
+            const kycNodeInfo = await powerloomNodes.nodeInfo(1);
+            expect(kycNodeInfo.isKyced).to.equal(true);
         });
 
         it("Should revert if initial claim percentage is too high", async function () {
