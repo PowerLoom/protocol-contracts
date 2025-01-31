@@ -957,12 +957,21 @@ contract PowerloomProtocolState is Initializable, Ownable2StepUpgradeable, UUPSU
         uint256 epochId,
         bytes32 finalizedCidsRootHash
     ) external {
-        bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED = dataMarket.submitBatchAttestation(batchCid, epochId, finalizedCidsRootHash, msg.sender);
+        (bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED, bool TRIGGER_BATCH_RESUBMISSION, bool BATCH_FINALIZED) = dataMarket.submitBatchAttestation(batchCid, epochId, finalizedCidsRootHash, msg.sender);
         if(SNAPSHOT_BATCH_ATTESTATION_SUBMITTED) {
             emit SnapshotBatchAttestationSubmitted(address(dataMarket), batchCid, epochId, block.timestamp, msg.sender);
         } else {
             emit DelayedAttestationSubmitted(address(dataMarket), batchCid, epochId, block.timestamp, msg.sender);
         }
+        if(TRIGGER_BATCH_RESUBMISSION){
+            emit TriggerBatchResubmission(address(dataMarket), epochId, batchCid, block.timestamp);
+        } else {
+            if(BATCH_FINALIZED){
+                _finalizeSnapshotBatchEvents(dataMarket, batchCid, epochId);
+                emit SnapshotBatchFinalized(address(dataMarket), epochId, batchCid, block.timestamp);
+            }
+        }
+
     }
 
     /**

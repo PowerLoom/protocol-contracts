@@ -893,13 +893,19 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
      * @param epochId The epoch ID of the batch
      * @param finalizedCidsRootHash The root hash of the merkle tree constructed from the finalized CIDs
      * @return SNAPSHOT_BATCH_ATTESTATION_SUBMITTED Boolean indicating if the attestation was submitted successfully
+     * @return TRIGGER_BATCH_RESUBMISSION Boolean indicating if the batch resubmission should be triggered
+     * @return BATCH_FINALIZED Boolean indicating if the batch was finalized
      */
     function submitBatchAttestation(
         string memory batchCid,
         uint256 epochId,
         bytes32 finalizedCidsRootHash,
         address _sender
-    ) public onlyProtocolState returns (bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED){
+    ) public onlyProtocolState returns (
+        bool SNAPSHOT_BATCH_ATTESTATION_SUBMITTED,
+        bool TRIGGER_BATCH_RESUBMISSION,
+        bool BATCH_FINALIZED
+    ){
         require(isValidator(_sender), "E01");
         bool found = false;
         for (uint i = 0; i < epochIdToBatchCids[epochId].length; i++) {
@@ -935,7 +941,7 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
             if (
                 shouldFinalizeBatchAttestation(batchCid, currentAttestationCount)
             ) {
-                finalizeSnapshotBatch(batchCid, epochId);
+                (TRIGGER_BATCH_RESUBMISSION, BATCH_FINALIZED) = finalizeSnapshotBatch(batchCid, epochId);
             }
             attestationsReceived[batchCid][tx.origin] = true;
             SNAPSHOT_BATCH_ATTESTATION_SUBMITTED = true;
@@ -982,7 +988,7 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
      */
     function finalizeSnapshotBatch(string memory batchCid, uint256 epochId) private
     returns(
-        bool TRIGGER_BATCH_RESUBMISSION, 
+        bool TRIGGER_BATCH_RESUBMISSION,
         bool BATCH_FINALIZED
     ) {
         if (
