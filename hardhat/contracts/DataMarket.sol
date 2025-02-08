@@ -916,7 +916,7 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
             }
         }
         require(found == true, "E26");
-        require(!validatorAttestationsReceived[tx.origin][epochId][batchCid], "E40");
+        require(!validatorAttestationsReceived[_sender][epochId][batchCid], "E40");
         if (
             block.number <=
             epochInfo[epochId].blocknumber + attestationSubmissionWindow
@@ -936,29 +936,29 @@ contract PowerloomDataMarket is Initializable, OwnableUpgradeable, UUPSUpgradeab
                 maxAttestationsCount[batchCid] = currentAttestationCount;
             }
             if (finalizedCidsRootHash != batchCidSequencerAttestation[batchCid]) {
-                batchCidDivergentValidators[batchCid].push(tx.origin);
+                batchCidDivergentValidators[batchCid].push(_sender);
             }
             if (
                 shouldFinalizeBatchAttestation(batchCid, currentAttestationCount)
             ) {
                 (TRIGGER_BATCH_RESUBMISSION, BATCH_FINALIZED) = finalizeSnapshotBatch(batchCid, epochId);
             }
-            attestationsReceived[batchCid][tx.origin] = true;
+            attestationsReceived[batchCid][_sender] = true;
             SNAPSHOT_BATCH_ATTESTATION_SUBMITTED = true;
             emit SnapshotBatchAttestationSubmitted(
                 batchCid,
                 epochId,
                 block.timestamp,
-                tx.origin
+                _sender
             );
-            validatorAttestationsReceived[tx.origin][epochId][batchCid] = true;
+            validatorAttestationsReceived[_sender][epochId][batchCid] = true;
         } else {
-            attestationsReceived[batchCid][tx.origin] = true;
+            attestationsReceived[batchCid][_sender] = true;
             emit DelayedAttestationSubmitted(
                 batchCid,
                 epochId,
                 block.timestamp,
-                tx.origin
+                _sender
             );
         }
     }
